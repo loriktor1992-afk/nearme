@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>NearMe — Знакомства рядом</title>
+    
+    <!-- Telegram Mini App Script -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    
+    <!-- Leaflet CSS -->
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
+    
+    <!-- Font Awesome -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+    
+    <style>
+      html, body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+      #root {
+        width: 100%;
+        height: 100%;
+      }
+      
+      /* Telegram theme variables */
+      :root {
+        --tg-bg-color: #ffffff;
+        --tg-text-color: #000000;
+        --tg-hint-color: #999999;
+        --tg-link-color: #2481cc;
+        --tg-button-color: #2481cc;
+        --tg-button-text-color: #ffffff;
+        --tg-secondary-bg-color: #f0f0f0;
+      }
+      
+      /* Dark theme */
+      html.dark {
+        --tg-bg-color: #1c1c1e;
+        --tg-text-color: #ffffff;
+        --tg-hint-color: #8e8e93;
+        --tg-secondary-bg-color: #2c2c2e;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
