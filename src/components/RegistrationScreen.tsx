@@ -92,13 +92,14 @@ export default function RegistrationScreen() {
       ? ['👩', '👩‍🦰', '👩‍🦱', '💃', '🧘‍♀️'][Math.floor(Math.random() * 5)]
       : ['👨', '👨‍🦱', '🧑', '👨‍💻', '🎸'][Math.floor(Math.random() * 5)];
 
-      register({
-        name: name.trim(),
-        age: parseInt(age),
-        gender,
-        bio: bio.trim() || 'Привет! Я новенький тут 👋',
-        avatar,
-      } as any);
+    register({
+      name: name.trim(),
+      age: parseInt(age),
+      gender,
+      bio: bio.trim() || 'Привет! Я новенький тут 👋',
+      avatar,
+    });
+
     mainButton.loading(false);
   };
 

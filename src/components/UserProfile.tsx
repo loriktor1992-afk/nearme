@@ -2,11 +2,9 @@ import React from 'react';
 import { useStore } from '../store';
 
 export default function UserProfile() {
-  const { selectedUser, currentUser, setShowProfile, setShowChat, setShowEditProfile } = useStore();
+  const { selectedUser, currentUser, setShowProfile, setShowChat } = useStore();
   
   if (!selectedUser || !currentUser) return null;
-
-  const isMe = selectedUser.id === currentUser.id;
 
   const getDistance = (lat1: number, lng1: number, lat2: number, lng2: number) => {
     const R = 6371000;
@@ -23,12 +21,14 @@ export default function UserProfile() {
 
   return (
     <div className="absolute inset-0 z-[2000] flex items-end">
+      {/* Backdrop */}
       <div 
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
         onClick={() => setShowProfile(false)}
       />
       
-      <div className="relative w-full bg-white dark:bg-gray-800 rounded-t-3xl shadow-2xl animate-slide-up overflow-hidden max-h-[85vh] overflow-y-auto">
+      {/* Card */}
+      <div className="relative w-full bg-white rounded-t-3xl shadow-2xl animate-slide-up overflow-hidden">
         {/* Header with gradient */}
         <div className="bg-gradient-to-br from-pink-500 via-purple-500 to-indigo-600 pt-8 pb-16 px-6 relative">
           <button
@@ -39,85 +39,38 @@ export default function UserProfile() {
           </button>
           <div className="text-center">
             <div className="text-6xl mb-2">{selectedUser.avatar}</div>
-            <h2 className="text-2xl font-bold text-white flex items-center justify-center gap-2">
-              {selectedUser.name}, {selectedUser.age}
-              {selectedUser.isPremium && <span>💎</span>}
-            </h2>
+            <h2 className="text-2xl font-bold text-white">{selectedUser.name}, {selectedUser.age}</h2>
             <div className="flex items-center justify-center gap-2 mt-2">
               <span className="w-2 h-2 bg-green-400 rounded-full"></span>
-              <span className="text-white/80 text-sm">
-                {selectedUser.isInvisible ? 'Невидимка 👻' : 'Онлайн'}
-              </span>
+              <span className="text-white/80 text-sm">Онлайн</span>
             </div>
           </div>
         </div>
 
         {/* Info */}
         <div className="px-6 -mt-8">
-          <div className="bg-white dark:bg-gray-700 rounded-2xl shadow-lg p-4 space-y-4">
+          <div className="bg-white rounded-2xl shadow-lg p-4 space-y-4">
             {/* Distance */}
             <div className="flex items-center justify-center gap-2">
               <i className="fas fa-location-dot text-purple-500"></i>
-              <span className="text-gray-600 dark:text-gray-300">{distance}м от тебя</span>
+              <span className="text-gray-600">{distance}м от тебя</span>
             </div>
 
             {/* Bio */}
             <div className="text-center">
-              <p className="text-gray-700 dark:text-gray-200 text-base">{selectedUser.bio}</p>
+              <p className="text-gray-700 text-base">{selectedUser.bio}</p>
             </div>
-
-            {/* Photos */}
-            {selectedUser.photos && selectedUser.photos.length > 0 && (
-              <div>
-                <h4 className="font-bold text-gray-800 dark:text-white mb-2 text-sm">Фотографии</h4>
-                <div className="grid grid-cols-3 gap-2">
-                  {selectedUser.photos.map(photo => (
-                    <div key={photo.id} className="aspect-square rounded-xl overflow-hidden">
-                      <img src={photo.url} alt="" className="w-full h-full object-cover" />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Interests */}
-            {selectedUser.interests && selectedUser.interests.length > 0 && (
-              <div>
-                <h4 className="font-bold text-gray-800 dark:text-white mb-2 text-sm">Интересы</h4>
-                <div className="flex flex-wrap gap-2">
-                  {selectedUser.interests.map((interest, idx) => (
-                    <span
-                      key={idx}
-                      className="px-3 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full text-xs font-medium"
-                    >
-                      {interest}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
 
             {/* Stats */}
             <div className="flex justify-center gap-6 py-2">
               <div className="text-center">
-                <div className="text-lg font-bold text-purple-600 dark:text-purple-400">{selectedUser.age}</div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">возраст</div>
+                <div className="text-lg font-bold text-purple-600">{selectedUser.age}</div>
+                <div className="text-xs text-gray-500">возраст</div>
               </div>
-              <div className="w-px bg-gray-200 dark:bg-gray-600"></div>
+              <div className="w-px bg-gray-200"></div>
               <div className="text-center">
-                <div className="text-lg font-bold text-purple-600 dark:text-purple-400">
-                  {distance < 500 ? '🔥' : '📍'}
-                </div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">
-                  {distance < 500 ? 'очень близко' : 'рядом'}
-                </div>
-              </div>
-              <div className="w-px bg-gray-200 dark:bg-gray-600"></div>
-              <div className="text-center">
-                <div className="text-lg font-bold text-purple-600 dark:text-purple-400">
-                  {selectedUser.photos?.length || 0}
-                </div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">фото</div>
+                <div className="text-lg font-bold text-purple-600">{distance < 500 ? '🔥' : '📍'}</div>
+                <div className="text-xs text-gray-500">{distance < 500 ? 'очень близко' : 'рядом'}</div>
               </div>
             </div>
           </div>
@@ -125,33 +78,19 @@ export default function UserProfile() {
 
         {/* Actions */}
         <div className="p-6 pt-4 pb-8 flex gap-3">
-          {isMe ? (
-            <>
-              <button
-                onClick={() => { setShowProfile(false); setShowEditProfile(true); }}
-                className="flex-1 py-3.5 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold rounded-xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
-              >
-                <i className="fas fa-edit"></i>
-                Редактировать
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                onClick={() => { setShowProfile(false); setShowChat(true); }}
-                className="flex-1 py-3.5 bg-gradient-to-r from-pink-500 to-purple-600 text-white font-semibold rounded-xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
-              >
-                <i className="fas fa-comment-dots"></i>
-                Написать
-              </button>
-              <button
-                onClick={() => setShowProfile(false)}
-                className="px-6 py-3.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 font-semibold rounded-xl active:scale-95 transition-all"
-              >
-                <i className="fas fa-heart text-pink-500"></i>
-              </button>
-            </>
-          )}
+          <button
+            onClick={() => { setShowProfile(false); setShowChat(true); }}
+            className="flex-1 py-3.5 bg-gradient-to-r from-pink-500 to-purple-600 text-white font-semibold rounded-xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
+          >
+            <i className="fas fa-comment-dots"></i>
+            Написать
+          </button>
+          <button
+            onClick={() => setShowProfile(false)}
+            className="px-6 py-3.5 bg-gray-100 text-gray-600 font-semibold rounded-xl active:scale-95 transition-all"
+          >
+            <i className="fas fa-heart"></i>
+          </button>
         </div>
       </div>
     </div>

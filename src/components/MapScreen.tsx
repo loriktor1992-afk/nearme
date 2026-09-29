@@ -1,15 +1,12 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { useStore, User } from '../store';
 import UserProfile from './UserProfile';
 import ChatScreen from './ChatScreen';
-import EditProfile from './EditProfile';
-import StoriesBar, { StoryViewer } from './Stories';
-import FiltersPanel from './FiltersPanel';
-import PremiumScreen from './PremiumScreen';
 import { hapticFeedback } from '../telegram';
 
+// Fix leaflet default icon issue
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
@@ -17,9 +14,10 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
 });
 
-function createUserIcon(avatar: string, isMe: boolean = false, hasStory: boolean = false) {
+// Custom user icon
+function createUserIcon(avatar: string, isMe: boolean = false) {
   const size = isMe ? 44 : 38;
-  const border = isMe ? '3px solid #8b5cf6' : hasStory ? '3px solid #f59e0b' : '2px solid #fff';
+  const border = isMe ? '3px solid #8b5cf6' : '2px solid #fff';
   const shadow = isMe ? '0 0 12px rgba(139,92,246,0.6)' : '0 2px 8px rgba(0,0,0,0.3)';
   
   return L.divIcon({
@@ -37,6 +35,7 @@ function createUserIcon(avatar: string, isMe: boolean = false, hasStory: boolean
         justify-content: center;
         font-size: ${isMe ? '22px' : '18px'};
         cursor: pointer;
+        transition: transform 0.2s;
         position: relative;
       ">
         ${avatar}
@@ -57,6 +56,7 @@ function createUserIcon(avatar: string, isMe: boolean = false, hasStory: boolean
   });
 }
 
+// Component to move map to user location
 function MapController({ lat, lng }: { lat: number; lng: number }) {
   const map = useMap();
   useEffect(() => {
@@ -66,35 +66,12 @@ function MapController({ lat, lng }: { lat: number; lng: number }) {
 }
 
 export default function MapScreen() {
-  const {
-    currentUser, onlineUsers, setSelectedUser, setShowChat, showChat,
-    showProfile, showEditProfile, showStories, showFilters, showPremium,
-    setShowProfile, setShowEditProfile, setShowFilters, setShowPremium,
-    filters, theme, setTheme, locationError, storyViewUser
-  } = useStore();
-  
+  const { currentUser, onlineUsers, setSelectedUser, setShowChat, showChat, showProfile, setShowProfile, locationError } = useStore();
   const [centerLat, setCenterLat] = useState(currentUser?.lat || 55.751);
   const [centerLng, setCenterLng] = useState(currentUser?.lng || 37.618);
   const [showNearby, setShowNearby] = useState(false);
-  const [isDark, setIsDark] = useState(
-    theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
-  );
 
-  // Apply theme
-  useEffect(() => {
-    const root = document.documentElement;
-    root.classList.remove('light', 'dark');
-    
-    if (theme === 'system') {
-      const isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      root.classList.add(isDarkMode ? 'dark' : 'light');
-      setIsDark(isDarkMode);
-    } else {
-      root.classList.add(theme);
-      setIsDark(theme === 'dark');
-    }
-  }, [theme]);
-
+  // Update center when user location changes
   useEffect(() => {
     if (currentUser) {
       setCenterLat(currentUser.lat);
@@ -118,44 +95,23 @@ export default function MapScreen() {
     return R * c;
   };
 
-  // Apply filters
-  const filteredUsers = useMemo(() => {
-    if (!currentUser) return [];
-    
-    return onlineUsers
-      .filter(u => {
-        // Don't show invisible premium users (unless you're premium too)
-        if (u.isInvisible && !currentUser.isPremium) return false;
-        
-        // Gender filter
-        if (filters.gender !== 'all' && u.gender !== filters.gender) return false;
-        
-        // Age filter
-        if (u.age < filters.ageMin || u.age > filters.ageMax) return false;
-        
-        // Distance filter
-        const dist = getDistance(currentUser.lat, currentUser.lng, u.lat, u.lng);
-        if (dist > filters.distanceMax * 1000) return false;
-        
-        return true;
-      })
-      .sort((a, b) => {
-        const distA = getDistance(currentUser.lat, currentUser.lng, a.lat, a.lng);
-        const distB = getDistance(currentUser.lat, currentUser.lng, b.lat, b.lng);
-        return distA - distB;
-      });
-  }, [onlineUsers, filters, currentUser]);
+  const nearbyUsers = onlineUsers
+    .filter(u => currentUser && getDistance(currentUser.lat, currentUser.lng, u.lat, u.lng) < 50000)
+    .sort((a, b) => {
+      if (!currentUser) return 0;
+      const distA = getDistance(currentUser.lat, currentUser.lng, a.lat, a.lng);
+      const distB = getDistance(currentUser.lat, currentUser.lng, b.lat, b.lng);
+      return distA - distB;
+    });
 
   if (!currentUser) return null;
 
-  if (showChat) return <ChatScreen />;
-
-  const tileUrl = isDark
-    ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-    : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+  if (showChat) {
+    return <ChatScreen />;
+  }
 
   return (
-    <div className={`w-full h-full relative ${isDark ? 'dark' : ''}`}>
+    <div className="w-full h-full relative">
       {/* Map */}
       <MapContainer
         center={[centerLat, centerLng]}
@@ -164,203 +120,154 @@ export default function MapScreen() {
         zoomControl={false}
       >
         <TileLayer
-          attribution='&copy; OpenStreetMap'
-          url={tileUrl}
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         <MapController lat={centerLat} lng={centerLng} />
         
         {/* Current user marker */}
-        {!currentUser.isInvisible && (
+        <Marker
+          position={[currentUser.lat, currentUser.lng]}
+          icon={createUserIcon(currentUser.avatar, true)}
+        >
+          <Popup>
+            <div className="text-center">
+              <span className="text-lg">Это ты!</span>
+            </div>
+          </Popup>
+        </Marker>
+
+        {/* Other users */}
+        {onlineUsers.map(user => (
           <Marker
-            position={[currentUser.lat, currentUser.lng]}
-            icon={createUserIcon(currentUser.avatar, true)}
+            key={user.id}
+            position={[user.lat, user.lng]}
+            icon={createUserIcon(user.avatar)}
+            eventHandlers={{
+              click: () => handleUserClick(user),
+            }}
           >
             <Popup>
-              <div className="text-center">
-                <span className="text-lg">Это ты!</span>
+              <div className="text-center p-1">
+                <div className="text-2xl mb-1">{user.avatar}</div>
+                <div className="font-bold">{user.name}, {user.age}</div>
+                <div className="text-xs text-gray-500 mt-1">
+                  {Math.round(getDistance(currentUser.lat, currentUser.lng, user.lat, user.lng))}м от тебя
+                </div>
+                <button
+                  onClick={() => handleUserClick(user)}
+                  className="mt-2 px-3 py-1 bg-purple-500 text-white rounded-full text-xs font-medium"
+                >
+                  Написать
+                </button>
               </div>
             </Popup>
           </Marker>
-        )}
-
-        {/* Other users */}
-        {filteredUsers.map(user => {
-          const hasStory = user.stories && user.stories.some(s => s.expiresAt > Date.now());
-          return (
-            <Marker
-              key={user.id}
-              position={[user.lat, user.lng]}
-              icon={createUserIcon(user.avatar, false, hasStory)}
-              eventHandlers={{
-                click: () => handleUserClick(user),
-              }}
-            >
-              <Popup>
-                <div className="text-center p-1">
-                  <div className="text-2xl mb-1">{user.avatar}</div>
-                  <div className="font-bold">{user.name}, {user.age}</div>
-                  {user.isPremium && <div className="text-xs">💎 Premium</div>}
-                  <div className="text-xs text-gray-500 mt-1">
-                    {Math.round(getDistance(currentUser.lat, currentUser.lng, user.lat, user.lng))}м от тебя
-                  </div>
-                  <button
-                    onClick={() => handleUserClick(user)}
-                    className="mt-2 px-3 py-1 bg-purple-500 text-white rounded-full text-xs font-medium"
-                  >
-                    Написать
-                  </button>
-                </div>
-              </Popup>
-            </Marker>
-          );
-        })}
+        ))}
       </MapContainer>
 
       {/* Top bar */}
       <div className="absolute top-0 left-0 right-0 z-[1000] p-3">
-        <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-lg rounded-2xl shadow-lg px-4 py-3 flex items-center justify-between">
+        <div className="bg-white/90 backdrop-blur-lg rounded-2xl shadow-lg px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-2xl">{currentUser.avatar}</span>
             <div>
-              <div className="font-bold text-sm text-gray-800 dark:text-white flex items-center gap-1">
-                {currentUser.name}
-                {currentUser.isPremium && <span className="text-xs">💎</span>}
-              </div>
+              <div className="font-bold text-sm text-gray-800">{currentUser.name}</div>
               <div className="text-xs text-green-600 flex items-center gap-1">
                 <span className="w-1.5 h-1.5 bg-green-500 rounded-full inline-block"></span>
-                {currentUser.isInvisible ? 'Невидимка 👻' : 'Онлайн'}
+                Онлайн
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="bg-purple-100 dark:bg-purple-900/30 px-3 py-1 rounded-full">
-              <span className="text-purple-700 dark:text-purple-300 font-bold text-sm">{filteredUsers.length}</span>
-              <span className="text-purple-500 dark:text-purple-400 text-xs ml-1">рядом</span>
+          <div className="flex items-center gap-3">
+            <div className="bg-purple-100 px-3 py-1 rounded-full">
+              <span className="text-purple-700 font-bold text-sm">{onlineUsers.length}</span>
+              <span className="text-purple-500 text-xs ml-1">рядом</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Stories Bar */}
-      <div className="absolute top-20 left-0 right-0 z-[1000]">
-        <StoriesBar />
-      </div>
-
       {/* Location error */}
       {locationError && (
-        <div className="absolute top-40 left-3 right-3 z-[1000] bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700 rounded-xl p-3 shadow-lg">
+        <div className="absolute top-20 left-3 right-3 z-[1000] bg-yellow-50 border border-yellow-200 rounded-xl p-3 shadow-lg">
           <div className="flex items-start gap-2">
-            <i className="fas fa-exclamation-triangle text-yellow-600 dark:text-yellow-400 mt-0.5"></i>
+            <i className="fas fa-exclamation-triangle text-yellow-600 mt-0.5"></i>
             <div className="flex-1">
-              <p className="text-sm text-yellow-800 dark:text-yellow-200 font-medium">Геолокация</p>
-              <p className="text-xs text-yellow-700 dark:text-yellow-300 mt-1">{locationError}</p>
+              <p className="text-sm text-yellow-800 font-medium">Геолокация</p>
+              <p className="text-xs text-yellow-700 mt-1">{locationError}</p>
             </div>
           </div>
         </div>
       )}
 
-      {/* Side buttons */}
-      <div className="absolute bottom-24 left-4 z-[1000] flex flex-col gap-2">
-        <button
-          onClick={() => setShowNearby(!showNearby)}
-          className="bg-white dark:bg-gray-800 shadow-lg rounded-full p-3 active:scale-95 transition-transform"
-        >
-          <i className="fas fa-list text-purple-600 dark:text-purple-400 text-lg"></i>
-        </button>
-        <button
-          onClick={() => { hapticFeedback.light(); setShowFilters(true); }}
-          className="bg-white dark:bg-gray-800 shadow-lg rounded-full p-3 active:scale-95 transition-transform"
-        >
-          <i className="fas fa-sliders text-purple-600 dark:text-purple-400 text-lg"></i>
-        </button>
-      </div>
+      {/* Nearby list toggle */}
+      <button
+        onClick={() => setShowNearby(!showNearby)}
+        className="absolute bottom-24 left-4 z-[1000] bg-white shadow-lg rounded-full p-3 active:scale-95 transition-transform"
+      >
+        <i className="fas fa-list text-purple-600 text-lg"></i>
+      </button>
 
-      <div className="absolute bottom-24 right-4 z-[1000] flex flex-col gap-2">
-        <button
-          onClick={() => {
-            if (currentUser) {
-              setCenterLat(currentUser.lat);
-              setCenterLng(currentUser.lng);
-            }
-          }}
-          className="bg-white dark:bg-gray-800 shadow-lg rounded-full p-3 active:scale-95 transition-transform"
-        >
-          <i className="fas fa-crosshairs text-purple-600 dark:text-purple-400 text-lg"></i>
-        </button>
-        <button
-          onClick={() => {
-            hapticFeedback.selection();
-            setTheme(isDark ? 'light' : 'dark');
-          }}
-          className="bg-white dark:bg-gray-800 shadow-lg rounded-full p-3 active:scale-95 transition-transform"
-        >
-          <i className={`fas ${isDark ? 'fa-sun text-yellow-400' : 'fa-moon text-gray-600'} text-lg`}></i>
-        </button>
-        <button
-          onClick={() => { hapticFeedback.light(); setShowPremium(true); }}
-          className={`shadow-lg rounded-full p-3 active:scale-95 transition-transform ${
-            currentUser.isPremium 
-              ? 'bg-gradient-to-r from-yellow-400 to-orange-500' 
-              : 'bg-white dark:bg-gray-800'
-          }`}
-        >
-          <span className="text-lg">{currentUser.isPremium ? '💎' : '⭐'}</span>
-        </button>
-      </div>
+      {/* My location button */}
+      <button
+        onClick={() => {
+          if (currentUser) {
+            setCenterLat(currentUser.lat);
+            setCenterLng(currentUser.lng);
+          }
+        }}
+        className="absolute bottom-24 right-4 z-[1000] bg-white shadow-lg rounded-full p-3 active:scale-95 transition-transform"
+      >
+        <i className="fas fa-crosshairs text-purple-600 text-lg"></i>
+      </button>
 
       {/* Nearby list */}
       {showNearby && (
-        <div className="absolute bottom-0 left-0 right-0 z-[1000] bg-white dark:bg-gray-800 rounded-t-3xl shadow-2xl max-h-[60vh] overflow-hidden">
-          <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+        <div className="absolute bottom-0 left-0 right-0 z-[1000] bg-white rounded-t-3xl shadow-2xl max-h-[60vh] overflow-hidden">
+          <div className="p-4 border-b">
             <div className="flex items-center justify-between">
-              <h3 className="font-bold text-lg text-gray-800 dark:text-white">Люди рядом</h3>
+              <h3 className="font-bold text-lg text-gray-800">Люди рядом</h3>
               <button onClick={() => setShowNearby(false)} className="text-gray-400 p-1">
                 <i className="fas fa-times text-lg"></i>
               </button>
             </div>
           </div>
           <div className="overflow-y-auto max-h-[50vh]">
-            {filteredUsers.map(user => (
+            {nearbyUsers.map(user => (
               <div
                 key={user.id}
                 onClick={() => { handleUserClick(user); setShowNearby(false); }}
-                className="flex items-center gap-3 p-4 border-b border-gray-50 dark:border-gray-700 active:bg-gray-50 dark:active:bg-gray-700 cursor-pointer transition-colors"
+                className="flex items-center gap-3 p-4 border-b border-gray-50 active:bg-gray-50 cursor-pointer transition-colors"
               >
                 <div className="relative">
                   <div className="w-12 h-12 rounded-full bg-gradient-to-br from-pink-400 to-purple-500 flex items-center justify-center text-xl">
                     {user.avatar}
                   </div>
-                  <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white dark:border-gray-800"></div>
+                  <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
                 </div>
                 <div className="flex-1">
-                  <div className="font-semibold text-gray-800 dark:text-white flex items-center gap-1">
-                    {user.name}, {user.age}
-                    {user.isPremium && <span className="text-xs">💎</span>}
-                  </div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400">{user.bio}</div>
+                  <div className="font-semibold text-gray-800">{user.name}, {user.age}</div>
+                  <div className="text-sm text-gray-500">{user.bio}</div>
                 </div>
-                <div className="text-xs text-purple-600 dark:text-purple-400 font-medium">
+                <div className="text-xs text-purple-600 font-medium">
                   {Math.round(getDistance(currentUser.lat, currentUser.lng, user.lat, user.lng))}м
                 </div>
               </div>
             ))}
-            {filteredUsers.length === 0 && (
+            {nearbyUsers.length === 0 && (
               <div className="p-8 text-center text-gray-400">
                 <div className="text-4xl mb-2">🔍</div>
-                <p>Никого не найдено</p>
-                <p className="text-xs mt-2">Попробуй изменить фильтры</p>
+                <p>Пока никого нет рядом</p>
+                <p className="text-xs mt-2">Пригласи друзей присоединиться!</p>
               </div>
             )}
           </div>
         </div>
       )}
 
-      {/* Modals */}
+      {/* Profile Modal */}
       {showProfile && <UserProfile />}
-      {showEditProfile && <EditProfile />}
-      {showFilters && <FiltersPanel />}
-      {showPremium && <PremiumScreen />}
-      {showStories && storyViewUser && <StoryViewer />}
     </div>
   );
 }
