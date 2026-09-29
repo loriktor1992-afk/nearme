@@ -492,35 +492,45 @@ export const useStore = create<AppState>((set, get) => ({
 }));
 
 // Restore session
-const storedRegistered = localStorage.getItem('nearme_registered');
-const storedUser = localStorage.getItem('nearme_user');
-const storedFilters = localStorage.getItem('nearme_filters');
+try {
+  const storedRegistered = localStorage.getItem('nearme_registered');
+  const storedUser = localStorage.getItem('nearme_user');
+  const storedFilters = localStorage.getItem('nearme_filters');
 
-if (storedFilters) {
-  try {
-    useStore.setState({ filters: JSON.parse(storedFilters) });
-  } catch (e) {}
-}
+  if (storedFilters) {
+    try {
+      useStore.setState({ filters: JSON.parse(storedFilters) });
+    } catch (e) {}
+  }
 
-if (storedRegistered === 'true' && storedUser) {
-  try {
-    const user = JSON.parse(storedUser) as User;
-    const userDbRef = dbRef(db, `users/${user.id}`);
-    fbSet(userDbRef, { ...user, isOnline: true, lastSeen: Date.now() });
-    
-    onDisconnect(userDbRef).update({
-      isOnline: false,
-      lastSeen: Date.now(),
-    });
+  if (storedRegistered === 'true' && storedUser && db) {
+    try {
+      const user = JSON.parse(storedUser) as User;
+      const userDbRef = dbRef(db, `users/${user.id}`);
+      fbSet(userDbRef, { ...user, isOnline: true, lastSeen: Date.now() });
+      
+      onDisconnect(userDbRef).update({
+        isOnline: false,
+        lastSeen: Date.now(),
+      });
 
-    useStore.setState({ isRegistered: true, currentUser: user });
-    
-    setTimeout(() => {
-      useStore.getState().listenForUsers();
-      useStore.getState().startLocationTracking();
-    }, 100);
-  } catch (e) {
+      useStore.setState({ isRegistered: true, currentUser: user });
+      
+      setTimeout(() => {
+        useStore.getState().listenForUsers();
+        useStore.getState().startLocationTracking();
+      }, 100);
+    } catch (e) {
+      console.error('Session restore error:', e);
+      // Если Firebase не отвечает — просто покажем экран регистрации
+      localStorage.removeItem('nearme_registered');
+      localStorage.removeItem('nearme_user');
+    }
+  } else if (storedRegistered === 'true' && storedUser && !db) {
+    // Firebase не инициализирован — сбрасываем сессию
     localStorage.removeItem('nearme_registered');
     localStorage.removeItem('nearme_user');
   }
+} catch (e) {
+  console.error('Restore error:', e);
 }
