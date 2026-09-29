@@ -11,6 +11,7 @@ export interface User {
   avatar: string; // emoji fallback
   photoUrl: string; // реальное фото (URL)
   status: string; // статус под фото
+  city: string; // город
   lat: number;
   lng: number;
   isOnline: boolean;
@@ -262,14 +263,24 @@ if (storedRegistered === 'true' && storedUser) {
   try {
     const user = JSON.parse(storedUser) as User;
     const userRef = ref(db, `users/${user.id}`);
-    fbSet(userRef, { ...user, isOnline: true, lastSeen: Date.now() });
+    
+    // Загружаем актуальные данные из Firebase (включая фото)
+    onValue(userRef, (snapshot) => {
+      const firebaseUser = snapshot.val();
+      if (firebaseUser) {
+        const updatedUser = { ...user, ...firebaseUser, isOnline: true, lastSeen: Date.now() };
+        fbSet(userRef, updatedUser);
+        useStore.setState({ currentUser: updatedUser });
+        localStorage.setItem('nearme_user', JSON.stringify(updatedUser));
+      }
+    }, { onlyOnce: true });
     
     onDisconnect(userRef).update({
       isOnline: false,
       lastSeen: Date.now(),
     });
 
-    useStore.setState({ isRegistered: true, currentUser: user });
+    useStore.setState({ isRegistered: true });
     
     setTimeout(() => {
       useStore.getState().listenForUsers();

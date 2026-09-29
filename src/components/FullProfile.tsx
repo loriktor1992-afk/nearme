@@ -7,6 +7,7 @@ export default function FullProfile() {
   const [editName, setEditName] = useState(currentUser?.name || '');
   const [editBio, setEditBio] = useState(currentUser?.bio || '');
   const [editStatus, setEditStatus] = useState(currentUser?.status || '');
+  const [editCity, setEditCity] = useState(currentUser?.city || '');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!currentUser) return null;
@@ -30,6 +31,7 @@ export default function FullProfile() {
       name: editName.trim() || currentUser.name,
       bio: editBio.trim(),
       status: editStatus.trim(),
+      city: editCity.trim(),
     });
     setEditing(false);
   };
@@ -160,7 +162,18 @@ export default function FullProfile() {
               </div>
               <div className="flex items-center gap-3">
                 <i className="fas fa-map-marker-alt text-purple-400 w-5"></i>
-                <span className="text-gray-600">Москва</span>
+                {editing ? (
+                  <input
+                    type="text"
+                    value={editCity}
+                    onChange={e => setEditCity(e.target.value)}
+                    placeholder="Ваш город..."
+                    className="flex-1 px-3 py-1 rounded-lg border border-gray-200 focus:border-purple-400 outline-none text-sm"
+                    maxLength={30}
+                  />
+                ) : (
+                  <span className="text-gray-600">{currentUser.city || 'Не указан'}</span>
+                )}
               </div>
             </div>
           </div>

@@ -68,15 +68,36 @@ function createUserIcon(avatar: string, photoUrl: string, isMe: boolean = false)
 // }
 
 export default function MapScreen() {
-  const { currentUser, onlineUsers, setSelectedUser, setShowChat, showChat, showProfile, showFilters, setShowFilters, showFullProfile, setShowFullProfile, filters } = useStore();
+  const { currentUser, onlineUsers, setSelectedUser, setShowChat, showChat, showProfile, showFilters, setShowFilters, showFullProfile, setShowFullProfile, filters, updateLocation } = useStore();
   const [centerLat, setCenterLat] = useState(currentUser?.lat || 55.751);
   const [centerLng, setCenterLng] = useState(currentUser?.lng || 37.618);
   const [showNearby, setShowNearby] = useState(false);
+  const [expandedMarker, setExpandedMarker] = useState<string | null>(null);
 
-  // Убираем авто-возврат карты — теперь только по кнопке геолокации
+  // Получаем GPS координаты при загрузке
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          updateLocation(latitude, longitude);
+          setCenterLat(latitude);
+          setCenterLng(longitude);
+        },
+        (error) => {
+          console.error('GPS error:', error);
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+    }
+  }, []);
 
   const handleUserClick = (user: User) => {
-    setSelectedUser(user);
+    setExpandedMarker(user.id);
+  };
+
+  const handleCloseExpanded = () => {
+    setExpandedMarker(null);
   };
 
   const getDistance = (lat1: number, lng1: number, lat2: number, lng2: number) => {
@@ -114,6 +135,25 @@ export default function MapScreen() {
         return distA - distB;
       });
   }, [onlineUsers, filters, currentUser]);
+
+  // Функция возврата к текущему местоположению
+  const handleGoToMyLocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          updateLocation(latitude, longitude);
+          setCenterLat(latitude);
+          setCenterLng(longitude);
+        },
+        (error) => {
+          console.error('GPS error:', error);
+          alert('Не удалось получить местоположение');
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+    }
+  };
 
   if (!currentUser) return null;
 
@@ -226,12 +266,7 @@ export default function MapScreen() {
       </div>
 
       <button
-        onClick={() => {
-          if (currentUser) {
-            setCenterLat(currentUser.lat);
-            setCenterLng(currentUser.lng);
-          }
-        }}
+        onClick={handleGoToMyLocation}
         className="absolute bottom-24 right-4 z-[1000] bg-white shadow-lg rounded-full p-3 active:scale-95 transition-transform"
       >
         <i className="fas fa-crosshairs text-purple-600 text-lg"></i>
@@ -287,6 +322,47 @@ export default function MapScreen() {
       {showProfile && <UserProfile />}
       {showFilters && <FiltersPanel />}
       {showFullProfile && <FullProfile />}
+      
+      {/* Увеличенный маркер */}
+      {expandedMarker && (() => {
+        const user = onlineUsers.find(u => u.id === expandedMarker);
+        if (!user) return null;
+        return (
+          <div className="fixed inset-0 z-[3000] bg-black/80 flex items-center justify-center p-4" onClick={handleCloseExpanded}>
+            <div className="bg-white rounded-3xl max-w-sm w-full overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
+              {user.photoUrl ? (
+                <img src={user.photoUrl} alt="" className="w-full h-80 object-cover" />
+              ) : (
+                <div className="w-full h-80 bg-gradient-to-br from-pink-400 to-purple-500 flex items-center justify-center text-9xl">
+                  {user.avatar}
+                </div>
+              )}
+              <div className="p-5">
+                <h3 className="text-2xl font-bold text-gray-800">{user.name}, {user.age}</h3>
+                {user.status && <p className="text-gray-500 italic mt-1">"{user.status}"</p>}
+                <p className="text-gray-600 mt-2">{user.bio}</p>
+                <div className="flex gap-3 mt-4">
+                  <button
+                    onClick={() => {
+                      handleCloseExpanded();
+                      setSelectedUser(user);
+                    }}
+                    className="flex-1 py-3 bg-gradient-to-r from-pink-500 to-purple-600 text-white font-semibold rounded-xl shadow-lg active:scale-95 transition-all"
+                  >
+                    Открыть профиль
+                  </button>
+                  <button
+                    onClick={handleCloseExpanded}
+                    className="px-5 py-3 bg-gray-100 text-gray-600 font-semibold rounded-xl active:scale-95 transition-all"
+                  >
+                    Закрыть
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
