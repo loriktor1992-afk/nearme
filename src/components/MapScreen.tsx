@@ -13,10 +13,14 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 });
 
-function createUserIcon(avatar: string, isMe: boolean = false) {
+function createUserIcon(avatar: string, photoUrl: string, isMe: boolean = false) {
   const size = isMe ? 44 : 38;
   const border = isMe ? '3px solid #8b5cf6' : '2px solid #fff';
   const shadow = isMe ? '0 0 12px rgba(139,92,246,0.6)' : '0 2px 8px rgba(0,0,0,0.3)';
+  
+  const content = photoUrl 
+    ? `<img src="${photoUrl}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" />`
+    : `<span style="font-size:${isMe ? '22px' : '18px'};">${avatar}</span>`;
   
   return L.divIcon({
     className: 'custom-user-marker',
@@ -31,11 +35,11 @@ function createUserIcon(avatar: string, isMe: boolean = false) {
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: ${isMe ? '22px' : '18px'};
         cursor: pointer;
         position: relative;
+        overflow: hidden;
       ">
-        ${avatar}
+        ${content}
         <div style="
           position: absolute;
           bottom: -1px;
@@ -53,13 +57,14 @@ function createUserIcon(avatar: string, isMe: boolean = false) {
   });
 }
 
-function MapController({ lat, lng }: { lat: number; lng: number }) {
-  const map = useMap();
-  useEffect(() => {
-    map.setView([lat, lng], 15);
-  }, [map, lat, lng]);
-  return null;
-}
+// Убираем авто-возврат карты
+// function MapController({ lat, lng }: { lat: number; lng: number }) {
+//   const map = useMap();
+//   useEffect(() => {
+//     map.setView([lat, lng], 15);
+//   }, [map, lat, lng]);
+//   return null;
+// }
 
 export default function MapScreen() {
   const { currentUser, onlineUsers, setSelectedUser, setShowChat, showChat, showProfile, showFilters, setShowFilters, filters } = useStore();
@@ -129,14 +134,15 @@ export default function MapScreen() {
         zoomControl={false}
       >
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution='© <a href="https://www.mapbox.com/">Mapbox</a> © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+          url="https://api.mapbox.com/styles/v1/mapbox/streets-v11/tiles/{z}/{x}/{y}?access_token=pk.eyJ1IjoibG9yaWt0b3IiLCJhIjoiY211bWdiMjc3MDF5YjJ6cGI2NzRtZ2pteiJ9.XmTxQNRxrkPcRybNDEDN9w"
+          tileSize={512}
+          zoomOffset={-1}
         />
-        <MapController lat={centerLat} lng={centerLng} />
         
         <Marker
           position={[currentUser.lat, currentUser.lng]}
-          icon={createUserIcon(currentUser.avatar, true)}
+          icon={createUserIcon(currentUser.avatar, currentUser.photoUrl, true)}
         >
           <Popup>
             <div className="text-center">
@@ -149,15 +155,20 @@ export default function MapScreen() {
           <Marker
             key={user.id}
             position={[user.lat, user.lng]}
-            icon={createUserIcon(user.avatar)}
+            icon={createUserIcon(user.avatar, user.photoUrl)}
             eventHandlers={{
               click: () => handleUserClick(user),
             }}
           >
             <Popup>
               <div className="text-center p-1">
-                <div className="text-2xl mb-1">{user.avatar}</div>
+                {user.photoUrl ? (
+                  <img src={user.photoUrl} alt="" className="w-12 h-12 rounded-full mx-auto mb-1 object-cover" />
+                ) : (
+                  <div className="text-2xl mb-1">{user.avatar}</div>
+                )}
                 <div className="font-bold">{user.name}, {user.age}</div>
+                {user.status && <div className="text-xs text-gray-500 mt-0.5 italic">"{user.status}"</div>}
                 <div className="text-xs text-gray-500 mt-1">
                   {Math.round(getDistance(currentUser.lat, currentUser.lng, user.lat, user.lng))}м от тебя
                 </div>
@@ -239,13 +250,18 @@ export default function MapScreen() {
                 className="flex items-center gap-3 p-4 border-b border-gray-50 active:bg-gray-50 cursor-pointer transition-colors"
               >
                 <div className="relative">
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-pink-400 to-purple-500 flex items-center justify-center text-xl">
-                    {user.avatar}
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-pink-400 to-purple-500 flex items-center justify-center text-xl overflow-hidden">
+                    {user.photoUrl ? (
+                      <img src={user.photoUrl} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      user.avatar
+                    )}
                   </div>
                   <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
                 </div>
                 <div className="flex-1">
                   <div className="font-semibold text-gray-800">{user.name}, {user.age}</div>
+                  {user.status && <div className="text-xs text-gray-400 italic">"{user.status}"</div>}
                   <div className="text-sm text-gray-500">{user.bio}</div>
                 </div>
                 <div className="text-xs text-purple-600 font-medium">

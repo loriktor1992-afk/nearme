@@ -8,7 +8,9 @@ export interface User {
   age: number;
   gender: 'male' | 'female';
   bio: string;
-  avatar: string;
+  avatar: string; // emoji fallback
+  photoUrl: string; // реальное фото (URL)
+  status: string; // статус под фото
   lat: number;
   lng: number;
   isOnline: boolean;
@@ -53,6 +55,8 @@ interface AppState {
   startLocationTracking: () => void;
   listenForUsers: () => void;
   listenForMessages: () => void;
+  uploadAvatar: (file: File) => Promise<string>;
+  updateStatus: (status: string) => void;
 }
 
 const generateUserId = () => {
@@ -119,6 +123,36 @@ export const useStore = create<AppState>((set, get) => ({
 
   resetFilters: () => {
     set({ filters: { gender: 'all', ageMin: 14, ageMax: 99, distanceMax: 50 } });
+  },
+
+  uploadAvatar: async (file: File) => {
+    const { currentUser } = get();
+    if (!currentUser) throw new Error('No user');
+
+    // Конвертируем файл в base64
+    const base64 = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+    });
+
+    // Сохраняем в Firebase
+    const userRef = ref(db, `users/${currentUser.id}/photoUrl`);
+    fbSet(userRef, base64);
+
+    set({ currentUser: { ...currentUser, photoUrl: base64 } });
+    return base64;
+  },
+
+  updateStatus: (status: string) => {
+    const { currentUser } = get();
+    if (!currentUser) return;
+
+    const userRef = ref(db, `users/${currentUser.id}/status`);
+    fbSet(userRef, status);
+
+    set({ currentUser: { ...currentUser, status } });
   },
 
   sendMessage: (text) => {

@@ -48,6 +48,8 @@ export default function RegistrationScreen() {
         gender,
         bio: bio.trim() || 'Привет! Я новенький тут 👋',
         avatar,
+        photoUrl: '',
+        status: '',
       });
     }
   };
