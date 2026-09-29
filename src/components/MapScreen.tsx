@@ -5,6 +5,7 @@ import { useStore, User } from '../store';
 import UserProfile from './UserProfile';
 import ChatScreen from './ChatScreen';
 import FiltersPanel from './FiltersPanel';
+import FullProfile from './FullProfile';
 
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -67,17 +68,12 @@ function createUserIcon(avatar: string, photoUrl: string, isMe: boolean = false)
 // }
 
 export default function MapScreen() {
-  const { currentUser, onlineUsers, setSelectedUser, setShowChat, showChat, showProfile, showFilters, setShowFilters, filters } = useStore();
+  const { currentUser, onlineUsers, setSelectedUser, setShowChat, showChat, showProfile, showFilters, setShowFilters, showFullProfile, setShowFullProfile, filters } = useStore();
   const [centerLat, setCenterLat] = useState(currentUser?.lat || 55.751);
   const [centerLng, setCenterLng] = useState(currentUser?.lng || 37.618);
   const [showNearby, setShowNearby] = useState(false);
 
-  useEffect(() => {
-    if (currentUser) {
-      setCenterLat(currentUser.lat);
-      setCenterLng(currentUser.lng);
-    }
-  }, [currentUser?.lat, currentUser?.lng]);
+  // Убираем авто-возврат карты — теперь только по кнопке геолокации
 
   const handleUserClick = (user: User) => {
     setSelectedUser(user);
@@ -187,16 +183,25 @@ export default function MapScreen() {
       <div className="absolute top-0 left-0 right-0 z-[1000] p-3">
         <div className="bg-white/90 backdrop-blur-lg rounded-2xl shadow-lg px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-2xl">{currentUser.avatar}</span>
+            <button onClick={() => setShowFullProfile(true)} className="relative">
+              {currentUser.photoUrl ? (
+                <img src={currentUser.photoUrl} alt="" className="w-10 h-10 rounded-full object-cover border-2 border-purple-400" />
+              ) : (
+                <span className="text-2xl">{currentUser.avatar}</span>
+              )}
+            </button>
             <div>
-              <div className="font-bold text-sm text-gray-800">{currentUser.name}</div>
+              <button onClick={() => setShowFullProfile(true)} className="font-bold text-sm text-gray-800 text-left">{currentUser.name}</button>
               <div className="text-xs text-green-600 flex items-center gap-1">
                 <span className="w-1.5 h-1.5 bg-green-500 rounded-full inline-block"></span>
                 Онлайн
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <button onClick={() => setShowFullProfile(true)} className="bg-purple-100 px-3 py-1.5 rounded-full active:scale-95 transition-transform">
+              <i className="fas fa-user text-purple-600 text-sm"></i>
+            </button>
             <div className="bg-purple-100 px-3 py-1 rounded-full">
               <span className="text-purple-700 font-bold text-sm">{onlineUsers.length}</span>
               <span className="text-purple-500 text-xs ml-1">рядом</span>
@@ -281,6 +286,7 @@ export default function MapScreen() {
 
       {showProfile && <UserProfile />}
       {showFilters && <FiltersPanel />}
+      {showFullProfile && <FullProfile />}
     </div>
   );
 }

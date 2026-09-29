@@ -41,6 +41,7 @@ interface AppState {
   showChat: boolean;
   showProfile: boolean;
   showFilters: boolean;
+  showFullProfile: boolean;
   filters: Filters;
   
   register: (user: Omit<User, 'id' | 'lat' | 'lng' | 'isOnline' | 'lastSeen'>) => void;
@@ -48,6 +49,7 @@ interface AppState {
   setShowChat: (show: boolean) => void;
   setShowProfile: (show: boolean) => void;
   setShowFilters: (show: boolean) => void;
+  setShowFullProfile: (show: boolean) => void;
   setFilters: (filters: Partial<Filters>) => void;
   resetFilters: () => void;
   sendMessage: (text: string) => void;
@@ -57,6 +59,7 @@ interface AppState {
   listenForMessages: () => void;
   uploadAvatar: (file: File) => Promise<string>;
   updateStatus: (status: string) => void;
+  updateProfile: (data: Partial<User>) => void;
 }
 
 const generateUserId = () => {
@@ -76,6 +79,7 @@ export const useStore = create<AppState>((set, get) => ({
   showChat: false,
   showProfile: false,
   showFilters: false,
+  showFullProfile: false,
   filters: { gender: 'all', ageMin: 14, ageMax: 99, distanceMax: 50 },
 
   register: (userData) => {
@@ -115,6 +119,7 @@ export const useStore = create<AppState>((set, get) => ({
   },
   setShowProfile: (show) => set({ showProfile: show }),
   setShowFilters: (show) => set({ showFilters: show }),
+  setShowFullProfile: (show) => set({ showFullProfile: show }),
 
   setFilters: (newFilters) => {
     const current = get().filters;
@@ -153,6 +158,17 @@ export const useStore = create<AppState>((set, get) => ({
     fbSet(userRef, status);
 
     set({ currentUser: { ...currentUser, status } });
+  },
+
+  updateProfile: (data) => {
+    const { currentUser } = get();
+    if (!currentUser) return;
+
+    const updated = { ...currentUser, ...data };
+    const userRef = ref(db, `users/${currentUser.id}`);
+    update(userRef, data);
+
+    set({ currentUser: updated });
   },
 
   sendMessage: (text) => {
