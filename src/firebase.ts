@@ -1,28 +1,16 @@
 import { initializeApp } from 'firebase/app';
 import { getDatabase } from 'firebase/database';
-import { getAuth } from 'firebase/auth';
-
-// ============================================================
-// ⚠️ ВАЖНО: Замени эти данные на свои из Firebase Console!
-// ============================================================
-// 1. Зайди на https://console.firebase.google.com/
-// 2. Создай проект (или используй существующий)
-// 3. В настройках проекта найди "Ваши приложения" → Web
-// 4. Скопируй firebaseConfig и вставь ниже
-// 5. Включи Realtime Database (в режиме test для начала)
-// ============================================================
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDEMO_KEY_REPLACE_ME",
-  authDomain: "nearme-demo.firebaseapp.com",
-  databaseURL: "https://nearme-demo-default-rtdb.firebaseio.com",
-  projectId: "nearme-demo",
-  storageBucket: "nearme-demo.appspot.com",
-  messagingSenderId: "123456789",
-  appId: "1:123456789:web:abcdef123456"
+  apiKey: "AIzaSyCgNTBYm9-yAWPKK0IwH1TnAQL_exHRX54",
+  authDomain: "nearme-app-59aa5.firebaseapp.com",
+  databaseURL: "https://nearme-app-59aa5-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "nearme-app-59aa5",
+  storageBucket: "nearme-app-59aa5.firebasestorage.app",
+  messagingSenderId: "744546557525",
+  appId: "1:744546557525:web:14feeb34b03a0e19ea3edc"
 };
 
 const app = initializeApp(firebaseConfig);
 export const db = getDatabase(app);
-export const auth = getAuth(app);
 export default app;

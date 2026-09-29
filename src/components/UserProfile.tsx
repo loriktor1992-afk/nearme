@@ -21,15 +21,12 @@ export default function UserProfile() {
 
   return (
     <div className="absolute inset-0 z-[2000] flex items-end">
-      {/* Backdrop */}
       <div 
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
         onClick={() => setShowProfile(false)}
       />
       
-      {/* Card */}
-      <div className="relative w-full bg-white rounded-t-3xl shadow-2xl animate-slide-up overflow-hidden">
-        {/* Header with gradient */}
+      <div className="relative w-full bg-white rounded-t-3xl shadow-2xl animate-slide-up overflow-hidden max-h-[85vh] overflow-y-auto">
         <div className="bg-gradient-to-br from-pink-500 via-purple-500 to-indigo-600 pt-8 pb-16 px-6 relative">
           <button
             onClick={() => setShowProfile(false)}
@@ -47,21 +44,17 @@ export default function UserProfile() {
           </div>
         </div>
 
-        {/* Info */}
         <div className="px-6 -mt-8">
           <div className="bg-white rounded-2xl shadow-lg p-4 space-y-4">
-            {/* Distance */}
             <div className="flex items-center justify-center gap-2">
               <i className="fas fa-location-dot text-purple-500"></i>
               <span className="text-gray-600">{distance}м от тебя</span>
             </div>
 
-            {/* Bio */}
             <div className="text-center">
               <p className="text-gray-700 text-base">{selectedUser.bio}</p>
             </div>
 
-            {/* Stats */}
             <div className="flex justify-center gap-6 py-2">
               <div className="text-center">
                 <div className="text-lg font-bold text-purple-600">{selectedUser.age}</div>
@@ -69,14 +62,17 @@ export default function UserProfile() {
               </div>
               <div className="w-px bg-gray-200"></div>
               <div className="text-center">
-                <div className="text-lg font-bold text-purple-600">{distance < 500 ? '🔥' : '📍'}</div>
-                <div className="text-xs text-gray-500">{distance < 500 ? 'очень близко' : 'рядом'}</div>
+                <div className="text-lg font-bold text-purple-600">
+                  {distance < 500 ? '🔥' : '📍'}
+                </div>
+                <div className="text-xs text-gray-500">
+                  {distance < 500 ? 'очень близко' : 'рядом'}
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Actions */}
         <div className="p-6 pt-4 pb-8 flex gap-3">
           <button
             onClick={() => { setShowProfile(false); setShowChat(true); }}
@@ -89,7 +85,7 @@ export default function UserProfile() {
             onClick={() => setShowProfile(false)}
             className="px-6 py-3.5 bg-gray-100 text-gray-600 font-semibold rounded-xl active:scale-95 transition-all"
           >
-            <i className="fas fa-heart"></i>
+            <i className="fas fa-heart text-pink-500"></i>
           </button>
         </div>
       </div>

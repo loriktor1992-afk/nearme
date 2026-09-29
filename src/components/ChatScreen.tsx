@@ -1,9 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useStore } from '../store';
-import { hapticFeedback, mainButton, backButton } from '../telegram';
 
 export default function ChatScreen() {
-  const { selectedUser, currentUser, messages, sendMessage, setShowChat, setShowProfile } = useStore();
+  const { selectedUser, currentUser, messages, sendMessage, setShowChat } = useStore();
   const [text, setText] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -11,19 +10,10 @@ export default function ChatScreen() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Telegram Back Button
-  useEffect(() => {
-    backButton.show(() => {
-      setShowChat(false);
-    });
-    return () => backButton.hide();
-  }, []);
-
   if (!selectedUser || !currentUser) return null;
 
   const handleSend = () => {
     if (!text.trim()) return;
-    hapticFeedback.light();
     sendMessage(text.trim());
     setText('');
   };
@@ -42,7 +32,6 @@ export default function ChatScreen() {
 
   return (
     <div className="w-full h-full flex flex-col bg-gray-50">
-      {/* Header */}
       <div className="bg-white shadow-sm px-4 py-3 flex items-center gap-3">
         <button
           onClick={() => setShowChat(false)}
@@ -50,10 +39,7 @@ export default function ChatScreen() {
         >
           <i className="fas fa-arrow-left text-gray-600"></i>
         </button>
-        <div 
-          className="flex items-center gap-3 flex-1 cursor-pointer"
-          onClick={() => { setShowChat(false); setShowProfile(true); }}
-        >
+        <div className="flex items-center gap-3 flex-1">
           <div className="relative">
             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-400 to-purple-500 flex items-center justify-center text-lg">
               {selectedUser.avatar}
@@ -67,7 +53,6 @@ export default function ChatScreen() {
         </div>
       </div>
 
-      {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
         {messages.length === 0 && (
           <div className="text-center py-12">
@@ -92,14 +77,9 @@ export default function ChatScreen() {
                 }`}
               >
                 <p className="text-sm leading-relaxed">{msg.text}</p>
-                <div className={`flex items-center gap-1 justify-end mt-1`}>
-                  <p className={`text-[10px] ${isMe ? 'text-white/70' : 'text-gray-400'}`}>
-                    {formatTime(msg.timestamp)}
-                  </p>
-                  {isMe && (
-                    <i className={`fas fa-check text-[10px] ${msg.read ? 'text-blue-300' : 'text-white/50'}`}></i>
-                  )}
-                </div>
+                <p className={`text-[10px] mt-1 ${isMe ? 'text-white/70' : 'text-gray-400'} text-right`}>
+                  {formatTime(msg.timestamp)}
+                </p>
               </div>
             </div>
           );
@@ -107,7 +87,6 @@ export default function ChatScreen() {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input */}
       <div className="bg-white border-t px-4 py-3">
         <div className="flex items-end gap-2">
           <div className="flex-1 bg-gray-100 rounded-2xl px-4 py-2 flex items-end">

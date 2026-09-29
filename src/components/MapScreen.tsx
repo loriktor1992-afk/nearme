@@ -1,20 +1,18 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { useStore, User } from '../store';
 import UserProfile from './UserProfile';
 import ChatScreen from './ChatScreen';
-import { hapticFeedback } from '../telegram';
+import FiltersPanel from './FiltersPanel';
 
-// Fix leaflet default icon issue
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 });
 
-// Custom user icon
 function createUserIcon(avatar: string, isMe: boolean = false) {
   const size = isMe ? 44 : 38;
   const border = isMe ? '3px solid #8b5cf6' : '2px solid #fff';
@@ -35,7 +33,6 @@ function createUserIcon(avatar: string, isMe: boolean = false) {
         justify-content: center;
         font-size: ${isMe ? '22px' : '18px'};
         cursor: pointer;
-        transition: transform 0.2s;
         position: relative;
       ">
         ${avatar}
@@ -56,7 +53,6 @@ function createUserIcon(avatar: string, isMe: boolean = false) {
   });
 }
 
-// Component to move map to user location
 function MapController({ lat, lng }: { lat: number; lng: number }) {
   const map = useMap();
   useEffect(() => {
@@ -66,12 +62,11 @@ function MapController({ lat, lng }: { lat: number; lng: number }) {
 }
 
 export default function MapScreen() {
-  const { currentUser, onlineUsers, setSelectedUser, setShowChat, showChat, showProfile, setShowProfile, locationError } = useStore();
+  const { currentUser, onlineUsers, setSelectedUser, setShowChat, showChat, showProfile, showFilters, setShowFilters, filters } = useStore();
   const [centerLat, setCenterLat] = useState(currentUser?.lat || 55.751);
   const [centerLng, setCenterLng] = useState(currentUser?.lng || 37.618);
   const [showNearby, setShowNearby] = useState(false);
 
-  // Update center when user location changes
   useEffect(() => {
     if (currentUser) {
       setCenterLat(currentUser.lat);
@@ -79,10 +74,9 @@ export default function MapScreen() {
     }
   }, [currentUser?.lat, currentUser?.lng]);
 
-  const handleUserClick = useCallback((user: User) => {
-    hapticFeedback.medium();
+  const handleUserClick = (user: User) => {
     setSelectedUser(user);
-  }, [setSelectedUser]);
+  };
 
   const getDistance = (lat1: number, lng1: number, lat2: number, lng2: number) => {
     const R = 6371000;
@@ -95,14 +89,30 @@ export default function MapScreen() {
     return R * c;
   };
 
-  const nearbyUsers = onlineUsers
-    .filter(u => currentUser && getDistance(currentUser.lat, currentUser.lng, u.lat, u.lng) < 50000)
-    .sort((a, b) => {
-      if (!currentUser) return 0;
-      const distA = getDistance(currentUser.lat, currentUser.lng, a.lat, a.lng);
-      const distB = getDistance(currentUser.lat, currentUser.lng, b.lat, b.lng);
-      return distA - distB;
-    });
+  const nearbyUsers = useMemo(() => {
+    return onlineUsers
+      .filter(u => {
+        if (!currentUser) return false;
+        
+        // Distance filter
+        const dist = getDistance(currentUser.lat, currentUser.lng, u.lat, u.lng);
+        if (dist > filters.distanceMax * 1000) return false;
+        
+        // Gender filter
+        if (filters.gender !== 'all' && u.gender !== filters.gender) return false;
+        
+        // Age filter
+        if (u.age < filters.ageMin || u.age > filters.ageMax) return false;
+        
+        return true;
+      })
+      .sort((a, b) => {
+        if (!currentUser) return 0;
+        const distA = getDistance(currentUser.lat, currentUser.lng, a.lat, a.lng);
+        const distB = getDistance(currentUser.lat, currentUser.lng, b.lat, b.lng);
+        return distA - distB;
+      });
+  }, [onlineUsers, filters, currentUser]);
 
   if (!currentUser) return null;
 
@@ -112,7 +122,6 @@ export default function MapScreen() {
 
   return (
     <div className="w-full h-full relative">
-      {/* Map */}
       <MapContainer
         center={[centerLat, centerLng]}
         zoom={15}
@@ -125,7 +134,6 @@ export default function MapScreen() {
         />
         <MapController lat={centerLat} lng={centerLng} />
         
-        {/* Current user marker */}
         <Marker
           position={[currentUser.lat, currentUser.lng]}
           icon={createUserIcon(currentUser.avatar, true)}
@@ -137,7 +145,6 @@ export default function MapScreen() {
           </Popup>
         </Marker>
 
-        {/* Other users */}
         {onlineUsers.map(user => (
           <Marker
             key={user.id}
@@ -166,7 +173,6 @@ export default function MapScreen() {
         ))}
       </MapContainer>
 
-      {/* Top bar */}
       <div className="absolute top-0 left-0 right-0 z-[1000] p-3">
         <div className="bg-white/90 backdrop-blur-lg rounded-2xl shadow-lg px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -188,28 +194,21 @@ export default function MapScreen() {
         </div>
       </div>
 
-      {/* Location error */}
-      {locationError && (
-        <div className="absolute top-20 left-3 right-3 z-[1000] bg-yellow-50 border border-yellow-200 rounded-xl p-3 shadow-lg">
-          <div className="flex items-start gap-2">
-            <i className="fas fa-exclamation-triangle text-yellow-600 mt-0.5"></i>
-            <div className="flex-1">
-              <p className="text-sm text-yellow-800 font-medium">Геолокация</p>
-              <p className="text-xs text-yellow-700 mt-1">{locationError}</p>
-            </div>
-          </div>
-        </div>
-      )}
+      <div className="absolute bottom-24 left-4 z-[1000] flex flex-col gap-2">
+        <button
+          onClick={() => setShowNearby(!showNearby)}
+          className="bg-white shadow-lg rounded-full p-3 active:scale-95 transition-transform"
+        >
+          <i className="fas fa-list text-purple-600 text-lg"></i>
+        </button>
+        <button
+          onClick={() => setShowFilters(true)}
+          className="bg-white shadow-lg rounded-full p-3 active:scale-95 transition-transform"
+        >
+          <i className="fas fa-sliders text-purple-600 text-lg"></i>
+        </button>
+      </div>
 
-      {/* Nearby list toggle */}
-      <button
-        onClick={() => setShowNearby(!showNearby)}
-        className="absolute bottom-24 left-4 z-[1000] bg-white shadow-lg rounded-full p-3 active:scale-95 transition-transform"
-      >
-        <i className="fas fa-list text-purple-600 text-lg"></i>
-      </button>
-
-      {/* My location button */}
       <button
         onClick={() => {
           if (currentUser) {
@@ -222,7 +221,6 @@ export default function MapScreen() {
         <i className="fas fa-crosshairs text-purple-600 text-lg"></i>
       </button>
 
-      {/* Nearby list */}
       {showNearby && (
         <div className="absolute bottom-0 left-0 right-0 z-[1000] bg-white rounded-t-3xl shadow-2xl max-h-[60vh] overflow-hidden">
           <div className="p-4 border-b">
@@ -259,15 +257,14 @@ export default function MapScreen() {
               <div className="p-8 text-center text-gray-400">
                 <div className="text-4xl mb-2">🔍</div>
                 <p>Пока никого нет рядом</p>
-                <p className="text-xs mt-2">Пригласи друзей присоединиться!</p>
               </div>
             )}
           </div>
         </div>
       )}
 
-      {/* Profile Modal */}
       {showProfile && <UserProfile />}
+      {showFilters && <FiltersPanel />}
     </div>
   );
 }
