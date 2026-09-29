@@ -59,5 +59,5 @@ export const uploadVideoToImgBB = async (file: File): Promise<string> => {
 
 // Проверка что ключ настроен
 export const isImgBBConfigured = (): boolean => {
-  return IMGBB_API_KEY !== 'YOUR_IMGBB_API_KEY_HERE';
+  return IMGBB_API_KEY.length > 0;
 };
