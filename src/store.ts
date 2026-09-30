@@ -16,6 +16,8 @@ export interface User {
   lng: number;
   isOnline: boolean;
   lastSeen: number;
+  likes: string[]; // кто лайкнул
+  profileViews: string[]; // кто смотрел профиль
 }
 
 export interface Message {
@@ -90,6 +92,12 @@ interface AppState {
   updateStatus: (status: string) => void;
   updateProfile: (data: Partial<User>) => void;
   addDemoUsersIfNeeded: () => void;
+  
+  // Likes and views
+  likeUser: (userId: string) => void;
+  unlikeUser: (userId: string) => void;
+  viewProfile: (userId: string) => void;
+  getChatCount: () => number;
   
   // District methods
   createDistrict: (name: string, description: string, centerLat: number, centerLng: number, radius: number) => Promise<void>;
@@ -190,6 +198,8 @@ export const useStore = create<AppState>((set, get) => ({
             lng: 37.620 + (Math.random() - 0.5) * 0.01,
             isOnline: true,
             lastSeen: Date.now(),
+            likes: [],
+            profileViews: [],
           },
           {
             id: 'demo_maxim',
@@ -205,6 +215,8 @@ export const useStore = create<AppState>((set, get) => ({
             lng: 37.615 + (Math.random() - 0.5) * 0.01,
             isOnline: true,
             lastSeen: Date.now(),
+            likes: [],
+            profileViews: [],
           },
           {
             id: 'demo_darya',
@@ -220,6 +232,8 @@ export const useStore = create<AppState>((set, get) => ({
             lng: 37.625 + (Math.random() - 0.5) * 0.01,
             isOnline: true,
             lastSeen: Date.now(),
+            likes: [],
+            profileViews: [],
           },
         ];
 
@@ -288,6 +302,63 @@ export const useStore = create<AppState>((set, get) => ({
     update(userRef, data);
 
     set({ currentUser: updated });
+  },
+
+  likeUser: (userId) => {
+    const { currentUser } = get();
+    if (!currentUser || userId === currentUser.id) return;
+
+    const userRef = ref(db, `users/${userId}/likes`);
+    onValue(userRef, (snapshot) => {
+      const likes = snapshot.val() || [];
+      if (!likes.includes(currentUser.id)) {
+        const newLikes = [...likes, currentUser.id];
+        fbSet(userRef, newLikes);
+      }
+    }, { onlyOnce: true });
+  },
+
+  unlikeUser: (userId) => {
+    const { currentUser } = get();
+    if (!currentUser) return;
+
+    const userRef = ref(db, `users/${userId}/likes`);
+    onValue(userRef, (snapshot) => {
+      const likes = snapshot.val() || [];
+      const newLikes = likes.filter((id: string) => id !== currentUser.id);
+      fbSet(userRef, newLikes);
+    }, { onlyOnce: true });
+  },
+
+  viewProfile: (userId) => {
+    const { currentUser } = get();
+    if (!currentUser || userId === currentUser.id) return;
+
+    const userRef = ref(db, `users/${userId}/profileViews`);
+    onValue(userRef, (snapshot) => {
+      const views = snapshot.val() || [];
+      if (!views.includes(currentUser.id)) {
+        const newViews = [...views, currentUser.id];
+        fbSet(userRef, newViews);
+      }
+    }, { onlyOnce: true });
+  },
+
+  getChatCount: () => {
+    const { currentUser, messages } = get();
+    if (!currentUser) return 0;
+
+    // Подсчитываем уникальные чаты
+    const chatPartners = new Set<string>();
+    messages.forEach(msg => {
+      if (msg.fromId === currentUser.id) {
+        chatPartners.add(msg.toId);
+      } else if (msg.toId === currentUser.id) {
+        chatPartners.add(msg.fromId);
+      }
+    });
+
+    return chatPartners.size;
   },
 
   // District methods
@@ -549,8 +620,8 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   listenForMessages: () => {
-    const { currentUser, selectedUser } = get();
-    if (!currentUser || !selectedUser) return;
+    const { currentUser } = get();
+    if (!currentUser) return;
 
     const messagesRef = ref(db, 'messages');
     onValue(messagesRef, (snapshot) => {
@@ -562,10 +633,7 @@ export const useStore = create<AppState>((set, get) => ({
 
       const allMessages: Message[] = Object.entries(data)
         .map(([id, msgData]) => ({ ...(msgData as Message), id }))
-        .filter(m => 
-          (m.fromId === currentUser.id && m.toId === selectedUser.id) ||
-          (m.fromId === selectedUser.id && m.toId === currentUser.id)
-        )
+        .filter(m => m.fromId === currentUser.id || m.toId === currentUser.id)
         .sort((a, b) => a.timestamp - b.timestamp);
 
       set({ messages: allMessages });

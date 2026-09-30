@@ -2,14 +2,35 @@ import React, { useState, useRef } from 'react';
 import { useStore } from '../store';
 
 export default function UserProfile() {
-  const { selectedUser, currentUser, setShowProfile, setShowChat, uploadAvatar, updateStatus } = useStore();
+  const { selectedUser, currentUser, setShowProfile, setShowChat, uploadAvatar, updateStatus, likeUser, unlikeUser, viewProfile } = useStore();
   const [editingStatus, setEditingStatus] = useState(false);
   const [statusText, setStatusText] = useState(selectedUser?.status || '');
+  const [liked, setLiked] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  React.useEffect(() => {
+    if (selectedUser && currentUser) {
+      setLiked(selectedUser.likes?.includes(currentUser.id) || false);
+      // Отслеживаем просмотр профиля
+      if (selectedUser.id !== currentUser.id) {
+        viewProfile(selectedUser.id);
+      }
+    }
+  }, [selectedUser?.id, currentUser?.id]);
   
   if (!selectedUser || !currentUser) return null;
 
   const isMe = selectedUser.id === currentUser.id;
+  
+  const handleLike = () => {
+    if (liked) {
+      unlikeUser(selectedUser.id);
+      setLiked(false);
+    } else {
+      likeUser(selectedUser.id);
+      setLiked(true);
+    }
+  };
 
   const getDistance = (lat1: number, lng1: number, lat2: number, lng2: number) => {
     const R = 6371000;
@@ -182,10 +203,10 @@ export default function UserProfile() {
                 Написать
               </button>
               <button
-                onClick={() => setShowProfile(false)}
-                className="px-6 py-3.5 bg-gray-100 text-gray-600 font-semibold rounded-xl active:scale-95 transition-all"
+                onClick={handleLike}
+                className={`px-6 py-3.5 ${liked ? 'bg-pink-500 text-white' : 'bg-gray-100 text-gray-600'} font-semibold rounded-xl active:scale-95 transition-all`}
               >
-                <i className="fas fa-heart text-pink-500"></i>
+                <i className={`fas fa-heart ${liked ? 'text-white' : 'text-pink-500'}`}></i>
               </button>
             </>
           )}

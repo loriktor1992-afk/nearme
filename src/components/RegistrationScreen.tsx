@@ -51,6 +51,8 @@ export default function RegistrationScreen() {
         photoUrl: '',
         status: '',
         city: '',
+        likes: [],
+        profileViews: [],
       });
     }
   };

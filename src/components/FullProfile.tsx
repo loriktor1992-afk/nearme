@@ -2,13 +2,17 @@ import React, { useState, useRef } from 'react';
 import { useStore } from '../store';
 
 export default function FullProfile() {
-  const { currentUser, setShowFullProfile, uploadAvatar, updateStatus, updateProfile } = useStore();
+  const { currentUser, setShowFullProfile, uploadAvatar, updateStatus, updateProfile, getChatCount } = useStore();
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState(currentUser?.name || '');
   const [editBio, setEditBio] = useState(currentUser?.bio || '');
   const [editStatus, setEditStatus] = useState(currentUser?.status || '');
   const [editCity, setEditCity] = useState(currentUser?.city || '');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  const likesCount = currentUser?.likes?.length || 0;
+  const viewsCount = currentUser?.profileViews?.length || 0;
+  const chatsCount = getChatCount();
 
   if (!currentUser) return null;
 
@@ -186,15 +190,15 @@ export default function FullProfile() {
             </h3>
             <div className="grid grid-cols-3 gap-3">
               <div className="bg-purple-50 rounded-xl p-3 text-center">
-                <div className="text-2xl font-bold text-purple-600">0</div>
+                <div className="text-2xl font-bold text-purple-600">{likesCount}</div>
                 <div className="text-xs text-gray-500">Лайков</div>
               </div>
               <div className="bg-pink-50 rounded-xl p-3 text-center">
-                <div className="text-2xl font-bold text-pink-600">0</div>
+                <div className="text-2xl font-bold text-pink-600">{chatsCount}</div>
                 <div className="text-xs text-gray-500">Чатов</div>
               </div>
               <div className="bg-indigo-50 rounded-xl p-3 text-center">
-                <div className="text-2xl font-bold text-indigo-600">0</div>
+                <div className="text-2xl font-bold text-indigo-600">{viewsCount}</div>
                 <div className="text-xs text-gray-500">Просмотров</div>
               </div>
             </div>

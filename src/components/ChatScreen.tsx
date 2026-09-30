@@ -12,6 +12,12 @@ export default function ChatScreen() {
 
   if (!selectedUser || !currentUser) return null;
 
+  // Фильтруем сообщения для текущего собеседника
+  const chatMsgs = messages.filter(m => 
+    (m.fromId === currentUser.id && m.toId === selectedUser.id) ||
+    (m.fromId === selectedUser.id && m.toId === currentUser.id)
+  );
+
   const handleSend = () => {
     if (!text.trim()) return;
     sendMessage(text.trim());
@@ -54,7 +60,7 @@ export default function ChatScreen() {
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
-        {messages.length === 0 && (
+        {chatMsgs.length === 0 && (
           <div className="text-center py-12">
             <div className="text-5xl mb-3">{selectedUser.avatar}</div>
             <p className="text-gray-500 text-sm">Начните общение с {selectedUser.name}!</p>
@@ -62,7 +68,7 @@ export default function ChatScreen() {
           </div>
         )}
         
-        {messages.map(msg => {
+        {chatMsgs.map(msg => {
           const isMe = msg.fromId === currentUser.id;
           return (
             <div
