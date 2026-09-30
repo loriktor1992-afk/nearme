@@ -17,6 +17,7 @@ export interface User {
   isOnline: boolean;
   lastSeen: number;
   likes: string[]; // кто лайкнул
+  dislikes: string[]; // антипатия
   profileViews: string[]; // кто смотрел профиль
 }
 
@@ -26,6 +27,8 @@ export interface Message {
   toId: string;
   text: string;
   timestamp: number;
+  read: boolean;
+  reactions: Record<string, string[]>; // emoji -> userIds
 }
 
 export interface District {
@@ -73,6 +76,7 @@ interface AppState {
   showFilters: boolean;
   showFullProfile: boolean;
   showDistricts: boolean;
+  typingUsers: Record<string, number>; // userId -> timestamp
   filters: Filters;
   
   register: (user: Omit<User, 'id' | 'lat' | 'lng' | 'isOnline' | 'lastSeen'>) => void;
@@ -88,6 +92,9 @@ interface AppState {
   startLocationTracking: () => void;
   listenForUsers: () => void;
   listenForMessages: () => void;
+  setTyping: (userId: string) => void;
+  addReaction: (messageId: string, emoji: string) => void;
+  markAsRead: (messageId: string) => void;
   uploadAvatar: (file: File) => Promise<string>;
   updateStatus: (status: string) => void;
   updateProfile: (data: Partial<User>) => void;
@@ -96,8 +103,13 @@ interface AppState {
   // Likes and views
   likeUser: (userId: string) => void;
   unlikeUser: (userId: string) => void;
+  dislikeUser: (userId: string) => void;
   viewProfile: (userId: string) => void;
   getChatCount: () => number;
+  getMatches: () => User[];
+  getUnreadCount: () => number;
+  showToast: (message: string) => void;
+  toastMessage: string | null;
   
   // District methods
   createDistrict: (name: string, description: string, centerLat: number, centerLng: number, radius: number) => Promise<void>;
@@ -137,6 +149,8 @@ export const useStore = create<AppState>((set, get) => ({
   showFilters: false,
   showFullProfile: false,
   showDistricts: false,
+  typingUsers: {},
+  toastMessage: null,
   filters: { gender: 'all', ageMin: 14, ageMax: 99, distanceMax: 50 },
 
   register: (userData) => {
@@ -199,6 +213,7 @@ export const useStore = create<AppState>((set, get) => ({
             isOnline: true,
             lastSeen: Date.now(),
             likes: [],
+            dislikes: [],
             profileViews: [],
           },
           {
@@ -216,6 +231,7 @@ export const useStore = create<AppState>((set, get) => ({
             isOnline: true,
             lastSeen: Date.now(),
             likes: [],
+            dislikes: [],
             profileViews: [],
           },
           {
@@ -233,6 +249,7 @@ export const useStore = create<AppState>((set, get) => ({
             isOnline: true,
             lastSeen: Date.now(),
             likes: [],
+            dislikes: [],
             profileViews: [],
           },
         ];
@@ -305,7 +322,7 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   likeUser: (userId) => {
-    const { currentUser } = get();
+    const { currentUser, onlineUsers } = get();
     if (!currentUser || userId === currentUser.id) return;
 
     const userRef = ref(db, `users/${userId}/likes`);
@@ -314,6 +331,13 @@ export const useStore = create<AppState>((set, get) => ({
       if (!likes.includes(currentUser.id)) {
         const newLikes = [...likes, currentUser.id];
         fbSet(userRef, newLikes);
+        
+        // Проверяем взаимность
+        const targetUser = onlineUsers.find(u => u.id === userId);
+        if (targetUser && targetUser.likes?.includes(currentUser.id)) {
+          // Взаимный лайк!
+          get().showToast(`💕 У вас взаимная симпатия с ${targetUser.name}!`);
+        }
       }
     }, { onlyOnce: true });
   },
@@ -328,6 +352,48 @@ export const useStore = create<AppState>((set, get) => ({
       const newLikes = likes.filter((id: string) => id !== currentUser.id);
       fbSet(userRef, newLikes);
     }, { onlyOnce: true });
+  },
+
+  dislikeUser: (userId) => {
+    const { currentUser } = get();
+    if (!currentUser || userId === currentUser.id) return;
+
+    const userRef = ref(db, `users/${userId}/dislikes`);
+    onValue(userRef, (snapshot) => {
+      const dislikes = snapshot.val() || [];
+      if (!dislikes.includes(currentUser.id)) {
+        const newDislikes = [...dislikes, currentUser.id];
+        fbSet(userRef, newDislikes);
+      }
+    }, { onlyOnce: true });
+  },
+
+  getMatches: () => {
+    const { currentUser, onlineUsers } = get();
+    if (!currentUser) return [];
+
+    return onlineUsers.filter(user => {
+      // Взаимный лайк
+      const iLiked = user.likes?.includes(currentUser.id);
+      const likedMe = currentUser.likes?.includes(user.id);
+      return iLiked && likedMe;
+    });
+  },
+
+  getUnreadCount: () => {
+    const { currentUser, messages } = get();
+    if (!currentUser) return 0;
+
+    return messages.filter(m => 
+      m.toId === currentUser.id && !m.read
+    ).length;
+  },
+
+  showToast: (message) => {
+    set({ toastMessage: message });
+    setTimeout(() => {
+      set({ toastMessage: null });
+    }, 3000);
   },
 
   viewProfile: (userId) => {
@@ -571,7 +637,48 @@ export const useStore = create<AppState>((set, get) => ({
       toId: selectedUser.id,
       text,
       timestamp: Date.now(),
+      read: false,
+      reactions: {},
     });
+  },
+
+  setTyping: (userId) => {
+    const { typingUsers } = get();
+    const updated = { ...typingUsers, [userId]: Date.now() };
+    set({ typingUsers: updated });
+    
+    // Убираем статус через 3 секунды
+    setTimeout(() => {
+      const current = get().typingUsers;
+      if (current[userId] && Date.now() - current[userId] >= 3000) {
+        const newTyping = { ...current };
+        delete newTyping[userId];
+        set({ typingUsers: newTyping });
+      }
+    }, 3500);
+  },
+
+  addReaction: (messageId, emoji) => {
+    const { currentUser } = get();
+    if (!currentUser) return;
+
+    const messageRef = ref(db, `messages/${messageId}/reactions/${emoji}`);
+    onValue(messageRef, (snapshot) => {
+      const reactions = snapshot.val() || [];
+      if (reactions.includes(currentUser.id)) {
+        // Убираем реакцию
+        const newReactions = reactions.filter((id: string) => id !== currentUser.id);
+        fbSet(messageRef, newReactions);
+      } else {
+        // Добавляем реакцию
+        fbSet(messageRef, [...reactions, currentUser.id]);
+      }
+    }, { onlyOnce: true });
+  },
+
+  markAsRead: (messageId) => {
+    const messageRef = ref(db, `messages/${messageId}/read`);
+    fbSet(messageRef, true);
   },
 
   updateLocation: (lat, lng) => {

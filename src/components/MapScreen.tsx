@@ -8,6 +8,8 @@ import FiltersPanel from './FiltersPanel';
 import FullProfile from './FullProfile';
 import DistrictsPanel from './DistrictsPanel';
 import DistrictView from './DistrictView';
+import ChatList from './ChatList';
+import Toast from './Toast';
 
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -72,7 +74,8 @@ function createUserIcon(avatar: string, photoUrl: string, isMe: boolean = false,
 // }
 
 export default function MapScreen() {
-  const { currentUser, onlineUsers, totalUsers, setSelectedUser, setShowChat, showChat, showProfile, showFilters, setShowFilters, showFullProfile, setShowFullProfile, showDistricts, setShowDistricts, currentDistrict, filters, updateLocation } = useStore();
+  const { currentUser, onlineUsers, totalUsers, setSelectedUser, setShowChat, showChat, showProfile, showFilters, setShowFilters, showFullProfile, setShowFullProfile, showDistricts, setShowDistricts, currentDistrict, filters, updateLocation, toastMessage, getUnreadCount } = useStore();
+  const [showChatList, setShowChatList] = useState(false);
   const [centerLat, setCenterLat] = useState(currentUser?.lat || 55.751);
   const [centerLng, setCenterLng] = useState(currentUser?.lng || 37.618);
   const [showNearby, setShowNearby] = useState(false);
@@ -261,13 +264,17 @@ export default function MapScreen() {
             <button onClick={() => setShowFullProfile(true)} className="bg-purple-100 px-3 py-1.5 rounded-full active:scale-95 transition-transform">
               <i className="fas fa-user text-purple-600 text-sm"></i>
             </button>
+            <button onClick={() => setShowChatList(true)} className="bg-pink-100 px-3 py-1.5 rounded-full active:scale-95 transition-transform relative">
+              <i className="fas fa-comment-dots text-pink-600 text-sm"></i>
+              {getUnreadCount() > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                  {getUnreadCount()}
+                </span>
+              )}
+            </button>
             <div className="bg-blue-100 px-3 py-1 rounded-full">
               <span className="text-blue-700 font-bold text-sm">{totalUsers}</span>
               <span className="text-blue-500 text-xs ml-1">всего</span>
-            </div>
-            <div className="bg-purple-100 px-3 py-1 rounded-full">
-              <span className="text-purple-700 font-bold text-sm">{onlineUsers.length}</span>
-              <span className="text-purple-500 text-xs ml-1">рядом</span>
             </div>
           </div>
         </div>
@@ -410,6 +417,9 @@ export default function MapScreen() {
           </div>
         );
       })()}
+      
+      {showChatList && <ChatList />}
+      <Toast />
     </div>
   );
 }

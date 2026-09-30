@@ -52,6 +52,7 @@ export default function RegistrationScreen() {
         status: '',
         city: '',
         likes: [],
+        dislikes: [],
         profileViews: [],
       });
     }
