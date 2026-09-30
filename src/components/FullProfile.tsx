@@ -37,8 +37,8 @@ export default function FullProfile() {
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) {
-      alert('Фото слишком большое. Максимум 2MB');
+    if (file.size > 10 * 1024 * 1024) {
+      alert('Фото слишком большое. Максимум 10MB');
       return;
     }
     try {
@@ -51,8 +51,8 @@ export default function FullProfile() {
   const handleGalleryPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) {
-      alert('Фото слишком большое. Максимум 2MB');
+    if (file.size > 10 * 1024 * 1024) {
+      alert('Фото слишком большое. Максимум 10MB');
       return;
     }
     try {

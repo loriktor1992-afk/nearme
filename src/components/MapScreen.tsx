@@ -178,9 +178,7 @@ export default function MapScreen() {
       >
         <TileLayer
           attribution=''
-          url="https://api.mapbox.com/styles/v1/mapbox/streets-v11/tiles/{z}/{x}/{y}?access_token=pk.eyJ1IjoibG9yaWt0b3IiLCJhIjoiY211bWdiMjc3MDF5YjJ6cGI2NzRtZ2pteiJ9.XmTxQNRxrkPcRybNDEDN9w"
-          tileSize={512}
-          zoomOffset={-1}
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         
         <Marker

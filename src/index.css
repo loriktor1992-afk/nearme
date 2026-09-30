@@ -77,7 +77,16 @@ input[type="number"] {
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1) !important;
 }
 
-/* Скрываем атрибуцию Leaflet */
+/* Скрываем атрибуцию Leaflet и флаги */
 .leaflet-control-attribution {
+  display: none !important;
+  visibility: hidden !important;
+}
+
+.leaflet-control-attribution a {
+  display: none !important;
+}
+
+.leaflet-bottom {
   display: none !important;
 }
