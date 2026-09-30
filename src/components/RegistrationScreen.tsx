@@ -49,28 +49,11 @@ export default function RegistrationScreen() {
         bio: bio.trim() || 'Привет! Я новенький тут 👋',
         avatar,
         photoUrl: '',
-        photos: [],
         status: '',
         city: '',
         likes: [],
         dislikes: [],
         profileViews: [],
-        interests: [],
-        height: 0,
-        zodiac: '',
-        languages: [],
-        socialLinks: { instagram: '', vk: '', telegram: '' },
-        lookingFor: '',
-        activityTime: '',
-        verified: false,
-        level: 1,
-        xp: 0,
-        achievements: [],
-        privacySettings: {
-          showDistance: true,
-          showLastSeen: true,
-          allowMessages: true,
-        },
       });
     }
   };
