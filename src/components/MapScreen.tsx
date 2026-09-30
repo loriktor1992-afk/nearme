@@ -6,6 +6,8 @@ import UserProfile from './UserProfile';
 import ChatScreen from './ChatScreen';
 import FiltersPanel from './FiltersPanel';
 import FullProfile from './FullProfile';
+import DistrictsPanel from './DistrictsPanel';
+import DistrictView from './DistrictView';
 
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -14,7 +16,7 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 });
 
-function createUserIcon(avatar: string, photoUrl: string, isMe: boolean = false) {
+function createUserIcon(avatar: string, photoUrl: string, isMe: boolean = false, isOnline: boolean = true) {
   const size = isMe ? 44 : 38;
   const border = isMe ? '3px solid #8b5cf6' : '2px solid #fff';
   const shadow = isMe ? '0 0 12px rgba(139,92,246,0.6)' : '0 2px 8px rgba(0,0,0,0.3)';
@@ -22,6 +24,8 @@ function createUserIcon(avatar: string, photoUrl: string, isMe: boolean = false)
   const content = photoUrl 
     ? `<img src="${photoUrl}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" />`
     : `<span style="font-size:${isMe ? '22px' : '18px'};">${avatar}</span>`;
+  
+  const statusColor = isOnline ? '#22c55e' : '#9ca3af';
   
   return L.divIcon({
     className: 'custom-user-marker',
@@ -47,7 +51,7 @@ function createUserIcon(avatar: string, photoUrl: string, isMe: boolean = false)
           right: -1px;
           width: 10px;
           height: 10px;
-          background: #22c55e;
+          background: ${statusColor};
           border-radius: 50%;
           border: 2px solid white;
         "></div>
@@ -68,7 +72,7 @@ function createUserIcon(avatar: string, photoUrl: string, isMe: boolean = false)
 // }
 
 export default function MapScreen() {
-  const { currentUser, onlineUsers, setSelectedUser, setShowChat, showChat, showProfile, showFilters, setShowFilters, showFullProfile, setShowFullProfile, filters, updateLocation } = useStore();
+  const { currentUser, onlineUsers, totalUsers, setSelectedUser, setShowChat, showChat, showProfile, showFilters, setShowFilters, showFullProfile, setShowFullProfile, showDistricts, setShowDistricts, currentDistrict, filters, updateLocation } = useStore();
   const [centerLat, setCenterLat] = useState(currentUser?.lat || 55.751);
   const [centerLng, setCenterLng] = useState(currentUser?.lng || 37.618);
   const [showNearby, setShowNearby] = useState(false);
@@ -170,7 +174,7 @@ export default function MapScreen() {
         zoomControl={false}
       >
         <TileLayer
-          attribution='© <a href="https://www.mapbox.com/">Mapbox</a> © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+          attribution=''
           url="https://api.mapbox.com/styles/v1/mapbox/streets-v11/tiles/{z}/{x}/{y}?access_token=pk.eyJ1IjoibG9yaWt0b3IiLCJhIjoiY211bWdiMjc3MDF5YjJ6cGI2NzRtZ2pteiJ9.XmTxQNRxrkPcRybNDEDN9w"
           tileSize={512}
           zoomOffset={-1}
@@ -178,7 +182,7 @@ export default function MapScreen() {
         
         <Marker
           position={[currentUser.lat, currentUser.lng]}
-          icon={createUserIcon(currentUser.avatar, currentUser.photoUrl, true)}
+          icon={createUserIcon(currentUser.avatar, currentUser.photoUrl, true, true)}
         >
           <Popup>
             <div className="text-center">
@@ -187,11 +191,13 @@ export default function MapScreen() {
           </Popup>
         </Marker>
 
-        {onlineUsers.map(user => (
+        {onlineUsers.map(user => {
+          const isOnline = Date.now() - user.lastSeen < 5 * 60 * 1000;
+          return (
           <Marker
             key={user.id}
             position={[user.lat, user.lng]}
-            icon={createUserIcon(user.avatar, user.photoUrl)}
+            icon={createUserIcon(user.avatar, user.photoUrl, false, isOnline)}
             eventHandlers={{
               click: () => handleUserClick(user),
             }}
@@ -203,21 +209,34 @@ export default function MapScreen() {
                 ) : (
                   <div className="text-2xl mb-1">{user.avatar}</div>
                 )}
-                <div className="font-bold">{user.name}, {user.age}</div>
+                <div className="font-bold flex items-center justify-center gap-1">
+                  {user.name}, {user.age}
+                  {Date.now() - user.lastSeen < 5 * 60 * 1000 ? (
+                    <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                  ) : (
+                    <span className="w-2 h-2 bg-gray-400 rounded-full"></span>
+                  )}
+                </div>
                 {user.status && <div className="text-xs text-gray-500 mt-0.5 italic">"{user.status}"</div>}
                 <div className="text-xs text-gray-500 mt-1">
                   {Math.round(getDistance(currentUser.lat, currentUser.lng, user.lat, user.lng))}м от тебя
+                </div>
+                <div className="text-xs text-gray-400 mt-0.5">
+                  {Date.now() - user.lastSeen < 5 * 60 * 1000 
+                    ? 'Онлайн' 
+                    : `Был(а) ${Math.round((Date.now() - user.lastSeen) / 60000)} мин назад`}
                 </div>
                 <button
                   onClick={() => handleUserClick(user)}
                   className="mt-2 px-3 py-1 bg-purple-500 text-white rounded-full text-xs font-medium"
                 >
-                  Написать
+                  Открыть профиль
                 </button>
               </div>
             </Popup>
           </Marker>
-        ))}
+          );
+        })}
       </MapContainer>
 
       <div className="absolute top-0 left-0 right-0 z-[1000] p-3">
@@ -242,6 +261,10 @@ export default function MapScreen() {
             <button onClick={() => setShowFullProfile(true)} className="bg-purple-100 px-3 py-1.5 rounded-full active:scale-95 transition-transform">
               <i className="fas fa-user text-purple-600 text-sm"></i>
             </button>
+            <div className="bg-blue-100 px-3 py-1 rounded-full">
+              <span className="text-blue-700 font-bold text-sm">{totalUsers}</span>
+              <span className="text-blue-500 text-xs ml-1">всего</span>
+            </div>
             <div className="bg-purple-100 px-3 py-1 rounded-full">
               <span className="text-purple-700 font-bold text-sm">{onlineUsers.length}</span>
               <span className="text-purple-500 text-xs ml-1">рядом</span>
@@ -262,6 +285,12 @@ export default function MapScreen() {
           className="bg-white shadow-lg rounded-full p-3 active:scale-95 transition-transform"
         >
           <i className="fas fa-sliders text-purple-600 text-lg"></i>
+        </button>
+        <button
+          onClick={() => setShowDistricts(true)}
+          className="bg-white shadow-lg rounded-full p-3 active:scale-95 transition-transform"
+        >
+          <i className="fas fa-map-marked-alt text-purple-600 text-lg"></i>
         </button>
       </div>
 
@@ -297,12 +326,28 @@ export default function MapScreen() {
                       user.avatar
                     )}
                   </div>
-                  <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
+                  <div className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white ${
+                    Date.now() - user.lastSeen < 5 * 60 * 1000 ? 'bg-green-500' : 'bg-gray-400'
+                  }`}></div>
                 </div>
                 <div className="flex-1">
-                  <div className="font-semibold text-gray-800">{user.name}, {user.age}</div>
+                  <div className="font-semibold text-gray-800 flex items-center gap-2">
+                    {user.name}, {user.age}
+                    {Date.now() - user.lastSeen < 5 * 60 * 1000 ? (
+                      <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                    ) : (
+                      <span className="w-2 h-2 bg-gray-400 rounded-full"></span>
+                    )}
+                  </div>
                   {user.status && <div className="text-xs text-gray-400 italic">"{user.status}"</div>}
                   <div className="text-sm text-gray-500">{user.bio}</div>
+                  <div className="text-xs text-gray-400 mt-1">
+                    {Date.now() - user.lastSeen < 5 * 60 * 1000 
+                      ? 'Онлайн' 
+                      : Date.now() - user.lastSeen < 30 * 60 * 1000
+                      ? `Был(а) ${Math.round((Date.now() - user.lastSeen) / 60000)} мин назад`
+                      : 'Давно не заходил(а)'}
+                  </div>
                 </div>
                 <div className="text-xs text-purple-600 font-medium">
                   {Math.round(getDistance(currentUser.lat, currentUser.lng, user.lat, user.lng))}м
@@ -322,6 +367,8 @@ export default function MapScreen() {
       {showProfile && <UserProfile />}
       {showFilters && <FiltersPanel />}
       {showFullProfile && <FullProfile />}
+      {showDistricts && !currentDistrict && <DistrictsPanel />}
+      {currentDistrict && <DistrictView />}
       
       {/* Увеличенный маркер */}
       {expandedMarker && (() => {

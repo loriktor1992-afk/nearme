@@ -26,6 +26,29 @@ export interface Message {
   timestamp: number;
 }
 
+export interface District {
+  id: string;
+  name: string;
+  description: string;
+  centerLat: number;
+  centerLng: number;
+  radius: number; // в метрах
+  adminId: string;
+  adminIds: string[]; // список админов
+  memberIds: string[]; // список участников
+  inviteOnly: boolean; // только по приглашению
+  createdAt: number;
+}
+
+export interface DistrictInvite {
+  id: string;
+  districtId: string;
+  fromUserId: string;
+  toUserId: string;
+  status: 'pending' | 'accepted' | 'rejected';
+  createdAt: number;
+}
+
 export interface Filters {
   gender: 'all' | 'male' | 'female';
   ageMin: number;
@@ -37,12 +60,17 @@ interface AppState {
   isRegistered: boolean;
   currentUser: User | null;
   onlineUsers: User[];
+  totalUsers: number;
+  districts: District[];
+  currentDistrict: District | null;
+  invites: DistrictInvite[];
   selectedUser: User | null;
   messages: Message[];
   showChat: boolean;
   showProfile: boolean;
   showFilters: boolean;
   showFullProfile: boolean;
+  showDistricts: boolean;
   filters: Filters;
   
   register: (user: Omit<User, 'id' | 'lat' | 'lng' | 'isOnline' | 'lastSeen'>) => void;
@@ -61,6 +89,21 @@ interface AppState {
   uploadAvatar: (file: File) => Promise<string>;
   updateStatus: (status: string) => void;
   updateProfile: (data: Partial<User>) => void;
+  addDemoUsersIfNeeded: () => void;
+  
+  // District methods
+  createDistrict: (name: string, description: string, centerLat: number, centerLng: number, radius: number) => Promise<void>;
+  joinDistrict: (districtId: string) => Promise<void>;
+  leaveDistrict: (districtId: string) => Promise<void>;
+  inviteToDistrict: (districtId: string, userId: string) => Promise<void>;
+  acceptInvite: (inviteId: string) => Promise<void>;
+  rejectInvite: (inviteId: string) => Promise<void>;
+  removeMember: (districtId: string, userId: string) => Promise<void>;
+  makeAdmin: (districtId: string, userId: string) => Promise<void>;
+  setCurrentDistrict: (district: District | null) => void;
+  setShowDistricts: (show: boolean) => void;
+  listenForDistricts: () => void;
+  listenForInvites: () => void;
 }
 
 const generateUserId = () => {
@@ -75,12 +118,17 @@ export const useStore = create<AppState>((set, get) => ({
   isRegistered: false,
   currentUser: null,
   onlineUsers: [],
+  totalUsers: 0,
+  districts: [],
+  currentDistrict: null,
+  invites: [],
   selectedUser: null,
   messages: [],
   showChat: false,
   showProfile: false,
   showFilters: false,
   showFullProfile: false,
+  showDistricts: false,
   filters: { gender: 'all', ageMin: 14, ageMax: 99, distanceMax: 50 },
 
   register: (userData) => {
@@ -109,8 +157,78 @@ export const useStore = create<AppState>((set, get) => ({
     localStorage.setItem('nearme_user', JSON.stringify(user));
 
     set({ isRegistered: true, currentUser: user });
+    
+    // Добавляем демо-пользователей если это первый пользователь
+    get().addDemoUsersIfNeeded();
+    
     get().listenForUsers();
+    get().listenForDistricts();
+    get().listenForInvites();
     get().startLocationTracking();
+  },
+
+  addDemoUsersIfNeeded: () => {
+    const usersRef = ref(db, 'users');
+    onValue(usersRef, (snapshot) => {
+      const data = snapshot.val();
+      const usersCount = data ? Object.keys(data).length : 0;
+      
+      // Если мало пользователей, добавляем демо
+      if (usersCount < 3) {
+        const demoUsers = [
+          {
+            id: 'demo_alina',
+            name: 'Алина',
+            age: 22,
+            gender: 'female',
+            bio: 'Люблю кофе и прогулки ☕',
+            avatar: '👩‍🦰',
+            photoUrl: '',
+            status: 'Ищу компанию',
+            city: 'Москва',
+            lat: 55.755 + (Math.random() - 0.5) * 0.01,
+            lng: 37.620 + (Math.random() - 0.5) * 0.01,
+            isOnline: true,
+            lastSeen: Date.now(),
+          },
+          {
+            id: 'demo_maxim',
+            name: 'Максим',
+            age: 25,
+            gender: 'male',
+            bio: 'Фотограф 📸',
+            avatar: '👨‍🦱',
+            photoUrl: '',
+            status: 'На связи',
+            city: 'Москва',
+            lat: 55.748 + (Math.random() - 0.5) * 0.01,
+            lng: 37.615 + (Math.random() - 0.5) * 0.01,
+            isOnline: true,
+            lastSeen: Date.now(),
+          },
+          {
+            id: 'demo_darya',
+            name: 'Дарья',
+            age: 20,
+            gender: 'female',
+            bio: 'Студентка, люблю музыку 🎵',
+            avatar: '👩',
+            photoUrl: '',
+            status: 'Свободна',
+            city: 'Москва',
+            lat: 55.760 + (Math.random() - 0.5) * 0.01,
+            lng: 37.625 + (Math.random() - 0.5) * 0.01,
+            isOnline: true,
+            lastSeen: Date.now(),
+          },
+        ];
+
+        demoUsers.forEach(user => {
+          const userRef = ref(db, `users/${user.id}`);
+          fbSet(userRef, user);
+        });
+      }
+    }, { onlyOnce: true });
   },
 
   setSelectedUser: (user) => set({ selectedUser: user, showProfile: !!user }),
@@ -172,6 +290,204 @@ export const useStore = create<AppState>((set, get) => ({
     set({ currentUser: updated });
   },
 
+  // District methods
+  createDistrict: async (name, description, centerLat, centerLng, radius) => {
+    const { currentUser } = get();
+    if (!currentUser) return;
+
+    const districtId = 'district_' + Date.now();
+    const district: District = {
+      id: districtId,
+      name,
+      description,
+      centerLat,
+      centerLng,
+      radius,
+      adminId: currentUser.id,
+      adminIds: [currentUser.id],
+      memberIds: [currentUser.id],
+      inviteOnly: true,
+      createdAt: Date.now(),
+    };
+
+    const districtRef = ref(db, `districts/${districtId}`);
+    await fbSet(districtRef, district);
+  },
+
+  joinDistrict: async (districtId) => {
+    const { currentUser, districts } = get();
+    if (!currentUser) return;
+
+    const district = districts.find(d => d.id === districtId);
+    if (!district) return;
+
+    if (district.inviteOnly && !district.memberIds.includes(currentUser.id)) {
+      return; // Нельзя вступить без приглашения
+    }
+
+    const memberRef = ref(db, `districts/${districtId}/memberIds`);
+    const newMembers = [...district.memberIds, currentUser.id];
+    await fbSet(memberRef, newMembers);
+  },
+
+  leaveDistrict: async (districtId) => {
+    const { currentUser, districts } = get();
+    if (!currentUser) return;
+
+    const district = districts.find(d => d.id === districtId);
+    if (!district) return;
+
+    if (district.adminId === currentUser.id) {
+      return; // Админ не может покинуть свой район
+    }
+
+    const memberRef = ref(db, `districts/${districtId}/memberIds`);
+    const newMembers = district.memberIds.filter(id => id !== currentUser.id);
+    await fbSet(memberRef, newMembers);
+  },
+
+  inviteToDistrict: async (districtId, userId) => {
+    const { currentUser, districts } = get();
+    if (!currentUser) return;
+
+    const district = districts.find(d => d.id === districtId);
+    if (!district) return;
+
+    if (!district.adminIds.includes(currentUser.id)) {
+      return; // Только админы могут приглашать
+    }
+
+    const inviteId = 'invite_' + Date.now();
+    const invite: DistrictInvite = {
+      id: inviteId,
+      districtId,
+      fromUserId: currentUser.id,
+      toUserId: userId,
+      status: 'pending',
+      createdAt: Date.now(),
+    };
+
+    const inviteRef = ref(db, `invites/${inviteId}`);
+    await fbSet(inviteRef, invite);
+  },
+
+  acceptInvite: async (inviteId) => {
+    const { currentUser, invites, districts } = get();
+    if (!currentUser) return;
+
+    const invite = invites.find(i => i.id === inviteId);
+    if (!invite || invite.toUserId !== currentUser.id) return;
+
+    const district = districts.find(d => d.id === invite.districtId);
+    if (!district) return;
+
+    // Добавляем в участники
+    const memberRef = ref(db, `districts/${invite.districtId}/memberIds`);
+    const newMembers = [...district.memberIds, currentUser.id];
+    await fbSet(memberRef, newMembers);
+
+    // Обновляем статус приглашения
+    const inviteRef = ref(db, `invites/${inviteId}/status`);
+    await fbSet(inviteRef, 'accepted');
+  },
+
+  rejectInvite: async (inviteId) => {
+    const { currentUser, invites } = get();
+    if (!currentUser) return;
+
+    const invite = invites.find(i => i.id === inviteId);
+    if (!invite || invite.toUserId !== currentUser.id) return;
+
+    const inviteRef = ref(db, `invites/${inviteId}/status`);
+    await fbSet(inviteRef, 'rejected');
+  },
+
+  removeMember: async (districtId, userId) => {
+    const { currentUser, districts } = get();
+    if (!currentUser) return;
+
+    const district = districts.find(d => d.id === districtId);
+    if (!district) return;
+
+    if (!district.adminIds.includes(currentUser.id)) {
+      return; // Только админы могут удалять
+    }
+
+    if (district.adminId === userId) {
+      return; // Нельзя удалить главного админа
+    }
+
+    const memberRef = ref(db, `districts/${districtId}/memberIds`);
+    const newMembers = district.memberIds.filter(id => id !== userId);
+    await fbSet(memberRef, newMembers);
+
+    // Если удаляемый был админом, убираем его из списка админов
+    if (district.adminIds.includes(userId)) {
+      const adminRef = ref(db, `districts/${districtId}/adminIds`);
+      const newAdmins = district.adminIds.filter(id => id !== userId);
+      await fbSet(adminRef, newAdmins);
+    }
+  },
+
+  makeAdmin: async (districtId, userId) => {
+    const { currentUser, districts } = get();
+    if (!currentUser) return;
+
+    const district = districts.find(d => d.id === districtId);
+    if (!district) return;
+
+    if (district.adminId !== currentUser.id) {
+      return; // Только главный админ может назначать админов
+    }
+
+    if (!district.memberIds.includes(userId)) {
+      return; // Можно назначить админом только участника
+    }
+
+    const adminRef = ref(db, `districts/${districtId}/adminIds`);
+    const newAdmins = [...district.adminIds, userId];
+    await fbSet(adminRef, newAdmins);
+  },
+
+  setCurrentDistrict: (district) => set({ currentDistrict: district }),
+  setShowDistricts: (show) => set({ showDistricts: show }),
+
+  listenForDistricts: () => {
+    const districtsRef = ref(db, 'districts');
+    onValue(districtsRef, (snapshot) => {
+      const data = snapshot.val();
+      if (!data) {
+        set({ districts: [] });
+        return;
+      }
+
+      const districts: District[] = Object.entries(data)
+        .map(([id, districtData]) => ({ ...(districtData as District), id }));
+
+      set({ districts });
+    });
+  },
+
+  listenForInvites: () => {
+    const { currentUser } = get();
+    if (!currentUser) return;
+
+    const invitesRef = ref(db, 'invites');
+    onValue(invitesRef, (snapshot) => {
+      const data = snapshot.val();
+      if (!data) {
+        set({ invites: [] });
+        return;
+      }
+
+      const invites: DistrictInvite[] = Object.entries(data)
+        .map(([id, inviteData]) => ({ ...(inviteData as DistrictInvite), id }))
+        .filter(invite => invite.toUserId === currentUser.id && invite.status === 'pending');
+
+      set({ invites });
+    });
+  },
+
   sendMessage: (text) => {
     const { currentUser, selectedUser } = get();
     if (!currentUser || !selectedUser) return;
@@ -217,16 +533,18 @@ export const useStore = create<AppState>((set, get) => ({
     onValue(usersRef, (snapshot) => {
       const data = snapshot.val();
       if (!data) {
-        set({ onlineUsers: [] });
+        set({ onlineUsers: [], totalUsers: 0 });
         return;
       }
 
-      const users: User[] = Object.entries(data)
-        .map(([id, userData]) => ({ ...(userData as User), id }))
-        .filter(u => u.isOnline && u.id !== get().currentUser?.id)
-        .filter(u => Date.now() - u.lastSeen < 5 * 60 * 1000);
+      const allUsers: User[] = Object.entries(data)
+        .map(([id, userData]) => ({ ...(userData as User), id }));
 
-      set({ onlineUsers: users });
+      const onlineUsers: User[] = allUsers
+        .filter(u => u.id !== get().currentUser?.id)
+        .filter(u => Date.now() - u.lastSeen < 30 * 60 * 1000); // 30 минут
+
+      set({ onlineUsers: onlineUsers, totalUsers: allUsers.length });
     });
   },
 
@@ -284,6 +602,8 @@ if (storedRegistered === 'true' && storedUser) {
     
     setTimeout(() => {
       useStore.getState().listenForUsers();
+      useStore.getState().listenForDistricts();
+      useStore.getState().listenForInvites();
       useStore.getState().startLocationTracking();
     }, 100);
   } catch (e) {

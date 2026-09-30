@@ -61,3 +61,8 @@ input[type="number"] {
 .leaflet-popup-tip {
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1) !important;
 }
+
+/* Скрываем атрибуцию Leaflet */
+.leaflet-control-attribution {
+  display: none !important;
+}
