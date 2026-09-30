@@ -6,6 +6,8 @@ export interface User {
   id: string;
   name: string;
   age: number;
+  birthDay: number; // день рождения (1-31)
+  birthMonth: number; // месяц рождения (1-12)
   birthYear: number; // год рождения
   gender: 'male' | 'female';
   bio: string;
@@ -208,6 +210,7 @@ export const useStore = create<AppState>((set, get) => ({
     get().addDemoUsersIfNeeded();
     
     get().listenForUsers();
+    get().listenForMessages();
     get().listenForDistricts();
     get().listenForInvites();
     get().startLocationTracking();
@@ -226,6 +229,8 @@ export const useStore = create<AppState>((set, get) => ({
             id: 'demo_alina',
             name: 'Алина',
             age: 22,
+            birthDay: 15,
+            birthMonth: 8,
             birthYear: 2002,
             gender: 'female',
             bio: 'Люблю кофе и прогулки ☕',
@@ -258,6 +263,8 @@ export const useStore = create<AppState>((set, get) => ({
             id: 'demo_maxim',
             name: 'Максим',
             age: 25,
+            birthDay: 3,
+            birthMonth: 10,
             birthYear: 1999,
             gender: 'male',
             bio: 'Фотограф 📸',
@@ -290,6 +297,8 @@ export const useStore = create<AppState>((set, get) => ({
             id: 'demo_darya',
             name: 'Дарья',
             age: 20,
+            birthDay: 21,
+            birthMonth: 6,
             birthYear: 2004,
             gender: 'female',
             bio: 'Студентка, люблю музыку 🎵',
@@ -883,6 +892,7 @@ if (storedRegistered === 'true' && storedUser) {
     
     setTimeout(() => {
       useStore.getState().listenForUsers();
+      useStore.getState().listenForMessages();
       useStore.getState().listenForDistricts();
       useStore.getState().listenForInvites();
       useStore.getState().startLocationTracking();

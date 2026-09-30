@@ -45,6 +45,8 @@ export default function RegistrationScreen() {
       register({
         name: name.trim(),
         age: parseInt(age),
+        birthDay: 1,
+        birthMonth: 1,
         birthYear: new Date().getFullYear() - parseInt(age),
         gender,
         bio: bio.trim() || 'Привет! Я новенький тут 👋',

@@ -27,6 +27,7 @@ export default function ChatScreen() {
     messages, 
     sendMessage, 
     setShowChat,
+    setSelectedUser,
     typingUsers,
     setTyping,
     addReaction,
@@ -89,8 +90,11 @@ export default function ChatScreen() {
       {/* Header */}
       <div className="bg-white dark:bg-gray-800 shadow-sm px-4 py-3 flex items-center gap-3">
         <button
-          onClick={() => setShowChat(false)}
-          className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
+          onClick={() => {
+            setShowChat(false);
+            setSelectedUser(null);
+          }}
+          className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 active:scale-95 transition-transform"
         >
           <i className="fas fa-arrow-left text-gray-600 dark:text-gray-300"></i>
         </button>

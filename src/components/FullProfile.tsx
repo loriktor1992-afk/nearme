@@ -17,7 +17,11 @@ export default function FullProfile() {
   const [editStatus, setEditStatus] = useState(currentUser?.status || '');
   const [editCity, setEditCity] = useState(currentUser?.city || '');
   const [editHeight, setEditHeight] = useState(currentUser?.height || 0);
+  const [editBirthDay, setEditBirthDay] = useState(currentUser?.birthDay || 1);
+  const [editBirthMonth, setEditBirthMonth] = useState(currentUser?.birthMonth || 1);
   const [editBirthYear, setEditBirthYear] = useState(currentUser?.birthYear || new Date().getFullYear() - (currentUser?.age || 0));
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = useState<number | null>(null);
   const [editLookingFor, setEditLookingFor] = useState(currentUser?.lookingFor || '');
   const [editActivityTime, setEditActivityTime] = useState(currentUser?.activityTime || '');
   const [editInterests, setEditInterests] = useState(currentUser?.interests?.join(', ') || '');
@@ -83,6 +87,34 @@ export default function FullProfile() {
     }));
   };
 
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > 50;
+    const isRightSwipe = distance < -50;
+    
+    if (isLeftSwipe && selectedPhotoIndex < (currentUser.photos?.length || 0) - 1) {
+      const newIndex = selectedPhotoIndex + 1;
+      setSelectedPhotoIndex(newIndex);
+      setSelectedPhoto(currentUser.photos![newIndex]);
+    }
+    
+    if (isRightSwipe && selectedPhotoIndex > 0) {
+      const newIndex = selectedPhotoIndex - 1;
+      setSelectedPhotoIndex(newIndex);
+      setSelectedPhoto(currentUser.photos![newIndex]);
+    }
+  };
+
   const handleSave = () => {
     const currentYear = new Date().getFullYear();
     const newAge = currentYear - editBirthYear;
@@ -93,6 +125,8 @@ export default function FullProfile() {
       status: editStatus.trim(),
       city: editCity.trim(),
       height: editHeight,
+      birthDay: editBirthDay,
+      birthMonth: editBirthMonth,
       birthYear: editBirthYear,
       age: newAge,
       lookingFor: editLookingFor.trim(),
@@ -295,18 +329,40 @@ export default function FullProfile() {
                 <div className="flex items-center gap-3">
                   <i className="fas fa-birthday-cake text-purple-400 w-5"></i>
                   {editing ? (
-                    <input
-                      type="number"
-                      value={editBirthYear}
-                      onChange={e => setEditBirthYear(parseInt(e.target.value) || 0)}
-                      placeholder="Год рождения"
-                      min="1950"
-                      max={new Date().getFullYear() - 14}
-                      className="flex-1 px-3 py-1 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white"
-                    />
+                    <div className="flex-1 flex gap-2">
+                      <input
+                        type="number"
+                        value={editBirthDay}
+                        onChange={e => setEditBirthDay(parseInt(e.target.value) || 1)}
+                        placeholder="День"
+                        min="1"
+                        max="31"
+                        className="w-16 px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white text-center"
+                      />
+                      <input
+                        type="number"
+                        value={editBirthMonth}
+                        onChange={e => setEditBirthMonth(parseInt(e.target.value) || 1)}
+                        placeholder="Месяц"
+                        min="1"
+                        max="12"
+                        className="w-16 px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white text-center"
+                      />
+                      <input
+                        type="number"
+                        value={editBirthYear}
+                        onChange={e => setEditBirthYear(parseInt(e.target.value) || 0)}
+                        placeholder="Год"
+                        min="1950"
+                        max={new Date().getFullYear() - 14}
+                        className="flex-1 px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white text-center"
+                      />
+                    </div>
                   ) : (
                     <span className="text-gray-600 dark:text-gray-300">
-                      {currentUser.birthYear ? `${currentUser.birthYear} г. (${currentUser.age} лет)` : `${currentUser.age} лет`}
+                      {currentUser.birthDay && currentUser.birthMonth && currentUser.birthYear 
+                        ? `${currentUser.birthDay}.${currentUser.birthMonth.toString().padStart(2, '0')}.${currentUser.birthYear} (${currentUser.age} лет)` 
+                        : `${currentUser.age} лет`}
                     </span>
                   )}
                 </div>
@@ -623,10 +679,13 @@ export default function FullProfile() {
         <div 
           className="fixed inset-0 z-[3000] bg-black/95 flex items-center justify-center"
           onClick={() => setSelectedPhoto(null)}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
         >
           <button
             onClick={() => setSelectedPhoto(null)}
-            className="absolute top-4 right-4 w-12 h-12 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center transition-colors"
+            className="absolute top-4 right-4 w-12 h-12 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center transition-colors z-10"
           >
             <i className="fas fa-times text-white text-xl"></i>
           </button>
@@ -638,41 +697,20 @@ export default function FullProfile() {
               className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl"
             />
             
-            {/* Navigation */}
-            {currentUser.photos && currentUser.photos.length > 1 && (
-              <>
-                {selectedPhotoIndex > 0 && (
-                  <button
-                    onClick={() => {
-                      const newIndex = selectedPhotoIndex - 1;
-                      setSelectedPhotoIndex(newIndex);
-                      setSelectedPhoto(currentUser.photos![newIndex]);
-                    }}
-                    className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-16 w-12 h-12 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center transition-colors"
-                  >
-                    <i className="fas fa-chevron-left text-white text-xl"></i>
-                  </button>
-                )}
-                {selectedPhotoIndex < currentUser.photos.length - 1 && (
-                  <button
-                    onClick={() => {
-                      const newIndex = selectedPhotoIndex + 1;
-                      setSelectedPhotoIndex(newIndex);
-                      setSelectedPhoto(currentUser.photos![newIndex]);
-                    }}
-                    className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-16 w-12 h-12 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center transition-colors"
-                  >
-                    <i className="fas fa-chevron-right text-white text-xl"></i>
-                  </button>
-                )}
-              </>
-            )}
-            
             {/* Photo counter */}
             {currentUser.photos && currentUser.photos.length > 1 && (
               <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/50 backdrop-blur px-4 py-2 rounded-full">
                 <span className="text-white text-sm">
                   {selectedPhotoIndex + 1} / {currentUser.photos.length}
+                </span>
+              </div>
+            )}
+            
+            {/* Swipe hint */}
+            {currentUser.photos && currentUser.photos.length > 1 && (
+              <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/50 backdrop-blur px-4 py-2 rounded-full">
+                <span className="text-white text-xs">
+                  ← Свайп для навигации →
                 </span>
               </div>
             )}
