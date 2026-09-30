@@ -10,6 +10,7 @@ export interface User {
   bio: string;
   avatar: string; // emoji fallback
   photoUrl: string; // реальное фото (URL)
+  photos: string[]; // галерея до 6 фото
   status: string; // статус под фото
   city: string; // город
   lat: number;
@@ -19,6 +20,23 @@ export interface User {
   likes: string[]; // кто лайкнул
   dislikes: string[]; // антипатия
   profileViews: string[]; // кто смотрел профиль
+  // Новые поля для полноценного профиля
+  interests: string[]; // интересы-теги
+  height: number; // рост
+  zodiac: string; // знак зодиака
+  languages: string[]; // языки
+  socialLinks: { instagram: string; vk: string; telegram: string };
+  lookingFor: string; // кого ищет
+  activityTime: string; // когда обычно онлайн
+  verified: boolean; // верификация
+  level: number; // уровень
+  xp: number; // опыт
+  achievements: string[]; // достижения
+  privacySettings: {
+    showDistance: boolean;
+    showLastSeen: boolean;
+    allowMessages: boolean;
+  };
 }
 
 export interface Message {
@@ -206,6 +224,7 @@ export const useStore = create<AppState>((set, get) => ({
             bio: 'Люблю кофе и прогулки ☕',
             avatar: '👩‍🦰',
             photoUrl: '',
+            photos: [],
             status: 'Ищу компанию',
             city: 'Москва',
             lat: 55.755 + (Math.random() - 0.5) * 0.01,
@@ -215,6 +234,18 @@ export const useStore = create<AppState>((set, get) => ({
             likes: [],
             dislikes: [],
             profileViews: [],
+            interests: ['кофе', 'прогулки', 'кино'],
+            height: 168,
+            zodiac: 'Лев',
+            languages: ['Русский', 'English'],
+            socialLinks: { instagram: '', vk: '', telegram: '' },
+            lookingFor: 'Дружба и общение',
+            activityTime: 'Вечером 19:00-22:00',
+            verified: false,
+            level: 3,
+            xp: 150,
+            achievements: ['first_chat', '10_likes'],
+            privacySettings: { showDistance: true, showLastSeen: true, allowMessages: true },
           },
           {
             id: 'demo_maxim',
@@ -224,6 +255,7 @@ export const useStore = create<AppState>((set, get) => ({
             bio: 'Фотограф 📸',
             avatar: '👨‍🦱',
             photoUrl: '',
+            photos: [],
             status: 'На связи',
             city: 'Москва',
             lat: 55.748 + (Math.random() - 0.5) * 0.01,
@@ -233,6 +265,18 @@ export const useStore = create<AppState>((set, get) => ({
             likes: [],
             dislikes: [],
             profileViews: [],
+            interests: ['фото', 'путешествия', 'спорт'],
+            height: 182,
+            zodiac: 'Весы',
+            languages: ['Русский'],
+            socialLinks: { instagram: '', vk: '', telegram: '' },
+            lookingFor: 'Общение',
+            activityTime: 'Днём 12:00-15:00',
+            verified: false,
+            level: 5,
+            xp: 320,
+            achievements: ['first_chat', '10_likes', 'verified'],
+            privacySettings: { showDistance: true, showLastSeen: true, allowMessages: true },
           },
           {
             id: 'demo_darya',
@@ -242,6 +286,7 @@ export const useStore = create<AppState>((set, get) => ({
             bio: 'Студентка, люблю музыку 🎵',
             avatar: '👩',
             photoUrl: '',
+            photos: [],
             status: 'Свободна',
             city: 'Москва',
             lat: 55.760 + (Math.random() - 0.5) * 0.01,
@@ -251,6 +296,18 @@ export const useStore = create<AppState>((set, get) => ({
             likes: [],
             dislikes: [],
             profileViews: [],
+            interests: ['музыка', 'танцы', 'искусство'],
+            height: 165,
+            zodiac: 'Близнецы',
+            languages: ['Русский', 'Deutsch'],
+            socialLinks: { instagram: '', vk: '', telegram: '' },
+            lookingFor: 'Новые знакомства',
+            activityTime: 'Вечером 20:00-23:00',
+            verified: false,
+            level: 2,
+            xp: 80,
+            achievements: ['first_chat'],
+            privacySettings: { showDistance: true, showLastSeen: true, allowMessages: true },
           },
         ];
 
