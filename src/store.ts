@@ -94,6 +94,7 @@ interface AppState {
   showFilters: boolean;
   showFullProfile: boolean;
   showDistricts: boolean;
+  showChatList: boolean;
   typingUsers: Record<string, number>; // userId -> timestamp
   filters: Filters;
   
@@ -103,6 +104,7 @@ interface AppState {
   setShowProfile: (show: boolean) => void;
   setShowFilters: (show: boolean) => void;
   setShowFullProfile: (show: boolean) => void;
+  setShowChatList: (show: boolean) => void;
   setFilters: (filters: Partial<Filters>) => void;
   resetFilters: () => void;
   sendMessage: (text: string) => void;
@@ -114,6 +116,8 @@ interface AppState {
   addReaction: (messageId: string, emoji: string) => void;
   markAsRead: (messageId: string) => void;
   uploadAvatar: (file: File) => Promise<string>;
+  uploadPhoto: (file: File) => Promise<string>;
+  deletePhoto: (photoIndex: number) => void;
   updateStatus: (status: string) => void;
   updateProfile: (data: Partial<User>) => void;
   addDemoUsersIfNeeded: () => void;
@@ -167,6 +171,7 @@ export const useStore = create<AppState>((set, get) => ({
   showFilters: false,
   showFullProfile: false,
   showDistricts: false,
+  showChatList: false,
   typingUsers: {},
   toastMessage: null,
   filters: { gender: 'all', ageMin: 14, ageMax: 99, distanceMax: 50 },
@@ -327,6 +332,7 @@ export const useStore = create<AppState>((set, get) => ({
   setShowProfile: (show) => set({ showProfile: show }),
   setShowFilters: (show) => set({ showFilters: show }),
   setShowFullProfile: (show) => set({ showFullProfile: show }),
+  setShowChatList: (show) => set({ showChatList: show }),
 
   setFilters: (newFilters) => {
     const current = get().filters;
@@ -355,6 +361,45 @@ export const useStore = create<AppState>((set, get) => ({
 
     set({ currentUser: { ...currentUser, photoUrl: base64 } });
     return base64;
+  },
+
+  uploadPhoto: async (file: File) => {
+    const { currentUser } = get();
+    if (!currentUser) throw new Error('No user');
+    if (currentUser.photos && currentUser.photos.length >= 6) {
+      throw new Error('Maximum 6 photos allowed');
+    }
+
+    // Конвертируем файл в base64
+    const base64 = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+    });
+
+    // Добавляем в массив photos
+    const photos = currentUser.photos || [];
+    const newPhotos = [...photos, base64];
+    
+    const userRef = ref(db, `users/${currentUser.id}/photos`);
+    fbSet(userRef, newPhotos);
+
+    set({ currentUser: { ...currentUser, photos: newPhotos } });
+    return base64;
+  },
+
+  deletePhoto: (photoIndex: number) => {
+    const { currentUser } = get();
+    if (!currentUser) return;
+
+    const photos = currentUser.photos || [];
+    const newPhotos = photos.filter((_, idx) => idx !== photoIndex);
+    
+    const userRef = ref(db, `users/${currentUser.id}/photos`);
+    fbSet(userRef, newPhotos);
+
+    set({ currentUser: { ...currentUser, photos: newPhotos } });
   },
 
   updateStatus: (status: string) => {

@@ -2,10 +2,11 @@ import React, { useState, useRef } from 'react';
 import { useStore } from '../store';
 
 export default function FullProfile() {
-  const { currentUser, setShowFullProfile, uploadAvatar, updateProfile } = useStore();
+  const { currentUser, setShowFullProfile, uploadAvatar, uploadPhoto, deletePhoto, updateProfile } = useStore();
   const [activeTab, setActiveTab] = useState<'main' | 'about' | 'interests' | 'social' | 'privacy'>('main');
   const [editing, setEditing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
   // Form states
   const [editName, setEditName] = useState(currentUser?.name || '');
@@ -44,6 +45,26 @@ export default function FullProfile() {
       await uploadAvatar(file);
     } catch (error) {
       alert('Ошибка загрузки фото');
+    }
+  };
+
+  const handleGalleryPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      alert('Фото слишком большое. Максимум 2MB');
+      return;
+    }
+    try {
+      await uploadPhoto(file);
+    } catch (error: any) {
+      alert(error.message || 'Ошибка загрузки фото');
+    }
+  };
+
+  const handleDeletePhoto = (index: number) => {
+    if (confirm('Удалить это фото?')) {
+      deletePhoto(index);
     }
   };
 
@@ -96,7 +117,7 @@ export default function FullProfile() {
       <div className="bg-gradient-to-br from-pink-500 via-purple-500 to-indigo-600 pt-8 pb-16 px-4 relative">
         <button
           onClick={() => setShowFullProfile(false)}
-          className="absolute top-4 left-4 w-10 h-10 bg-white/20 rounded-full flex items-center justify-center"
+          className="absolute top-4 left-4 w-10 h-10 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-colors"
         >
           <i className="fas fa-arrow-left text-white"></i>
         </button>
@@ -269,6 +290,46 @@ export default function FullProfile() {
                     <span className="text-gray-600 dark:text-gray-300">{currentUser.activityTime || 'Не указано'}</span>
                   )}
                 </div>
+              </div>
+            </div>
+
+            {/* Photo Gallery */}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-5">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-bold text-gray-800 dark:text-white flex items-center gap-2">
+                  <i className="fas fa-images text-purple-500"></i>
+                  Фотографии ({currentUser.photos?.length || 0}/6)
+                </h3>
+                {(!currentUser.photos || currentUser.photos.length < 6) && (
+                  <button
+                    onClick={() => photoInputRef.current?.click()}
+                    className="px-3 py-1 bg-purple-500 text-white rounded-lg text-sm flex items-center gap-1"
+                  >
+                    <i className="fas fa-plus"></i>
+                    Добавить
+                  </button>
+                )}
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {currentUser.photos && currentUser.photos.map((photo, idx) => (
+                  <div key={idx} className="relative aspect-square rounded-lg overflow-hidden group">
+                    <img src={photo} alt="" className="w-full h-full object-cover" />
+                    <button
+                      onClick={() => handleDeletePhoto(idx)}
+                      className="absolute top-1 right-1 w-6 h-6 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                    >
+                      <i className="fas fa-times text-xs"></i>
+                    </button>
+                  </div>
+                ))}
+                {(!currentUser.photos || currentUser.photos.length < 6) && (
+                  <button
+                    onClick={() => photoInputRef.current?.click()}
+                    className="aspect-square rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center text-gray-400 hover:border-purple-500 hover:text-purple-500 transition-colors"
+                  >
+                    <i className="fas fa-plus text-2xl"></i>
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -476,6 +537,13 @@ export default function FullProfile() {
         type="file"
         accept="image/*"
         onChange={handlePhotoUpload}
+        className="hidden"
+      />
+      <input
+        ref={photoInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleGalleryPhotoUpload}
         className="hidden"
       />
     </div>

@@ -62,9 +62,9 @@ export default function DistrictsPanel() {
       <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3 flex items-center justify-between z-10">
         <button
           onClick={() => setShowDistricts(false)}
-          className="text-purple-600 dark:text-purple-400 font-medium"
+          className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
         >
-          ← Назад
+          <i className="fas fa-arrow-left text-gray-600 dark:text-gray-300"></i>
         </button>
         <h2 className="font-bold text-gray-800 dark:text-white">Районы</h2>
         <button

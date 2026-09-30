@@ -14,13 +14,14 @@ export default function FiltersPanel() {
       <div className="relative w-full bg-white rounded-t-3xl shadow-2xl animate-slide-up max-h-[80vh] overflow-y-auto">
         <div className="sticky top-0 bg-white px-5 pt-5 pb-3 border-b">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold text-gray-800">Фильтры</h2>
             <button
               onClick={() => setShowFilters(false)}
-              className="text-gray-400 p-1"
+              className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100"
             >
-              <i className="fas fa-times text-lg"></i>
+              <i className="fas fa-arrow-left text-gray-600"></i>
             </button>
+            <h2 className="text-xl font-bold text-gray-800">Фильтры</h2>
+            <div className="w-10"></div>
           </div>
         </div>
 

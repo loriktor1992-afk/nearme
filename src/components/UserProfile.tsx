@@ -191,10 +191,18 @@ export default function UserProfile() {
               onClick={() => setShowProfile(false)}
               className="flex-1 py-3.5 bg-gray-100 text-gray-700 font-semibold rounded-xl active:scale-95 transition-all"
             >
-              Закрыть
+              <i className="fas fa-arrow-left mr-2"></i>
+              Назад
             </button>
           ) : (
             <>
+              <button
+                onClick={() => setShowProfile(false)}
+                className="px-6 py-3.5 bg-gray-100 text-gray-700 font-semibold rounded-xl active:scale-95 transition-all"
+              >
+                <i className="fas fa-arrow-left mr-2"></i>
+                Назад
+              </button>
               <button
                 onClick={() => { setShowProfile(false); setShowChat(true); }}
                 className="flex-1 py-3.5 bg-gradient-to-r from-pink-500 to-purple-600 text-white font-semibold rounded-xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"

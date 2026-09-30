@@ -48,9 +48,9 @@ export default function DistrictView() {
       <div className="bg-gradient-to-br from-purple-500 to-indigo-600 pt-8 pb-12 px-4">
         <button
           onClick={() => setCurrentDistrict(null)}
-          className="text-white/80 mb-4"
+          className="w-10 h-10 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/30 mb-4"
         >
-          ← Назад к районам
+          <i className="fas fa-arrow-left text-white"></i>
         </button>
         
         <h1 className="text-3xl font-bold text-white">{currentDistrict.name}</h1>

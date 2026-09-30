@@ -2,7 +2,7 @@ import React from 'react';
 import { useStore } from '../store';
 
 export default function ChatList() {
-  const { messages, currentUser, onlineUsers, setSelectedUser, setShowChat } = useStore();
+  const { messages, currentUser, onlineUsers, setSelectedUser, setShowChat, setShowChatList } = useStore();
 
   if (!currentUser) return null;
 
@@ -54,7 +54,13 @@ export default function ChatList() {
   return (
     <div className="fixed inset-0 z-[2500] bg-gray-50 dark:bg-gray-900 overflow-y-auto">
       {/* Header */}
-      <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3 z-10">
+      <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3 flex items-center gap-3 z-10">
+        <button
+          onClick={() => setShowChatList(false)}
+          className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
+        >
+          <i className="fas fa-arrow-left text-gray-600 dark:text-gray-300"></i>
+        </button>
         <h2 className="text-xl font-bold text-gray-800 dark:text-white">Чаты</h2>
       </div>
 
