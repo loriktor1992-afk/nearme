@@ -143,9 +143,25 @@ export default function FullProfile() {
     setEditing(false);
   };
 
-  const getZodiac = (age: number) => {
-    const zodiacs = ['Козерог', 'Водолей', 'Рыбы', 'Овен', 'Телец', 'Близнецы', 'Рак', 'Лев', 'Дева', 'Весы', 'Скорпион', 'Стрелец'];
-    return currentUser.zodiac || zodiacs[age % 12];
+  const getZodiac = () => {
+    const day = currentUser.birthDay || 1;
+    const month = currentUser.birthMonth || 1;
+    
+    // Определяем знак зодиака по дате рождения
+    if ((month === 3 && day >= 21) || (month === 4 && day <= 19)) return '♈ Овен';
+    if ((month === 4 && day >= 20) || (month === 5 && day <= 20)) return '♉ Телец';
+    if ((month === 5 && day >= 21) || (month === 6 && day <= 20)) return '♊ Близнецы';
+    if ((month === 6 && day >= 21) || (month === 7 && day <= 22)) return '♋ Рак';
+    if ((month === 7 && day >= 23) || (month === 8 && day <= 22)) return '♌ Лев';
+    if ((month === 8 && day >= 23) || (month === 9 && day <= 22)) return '♍ Дева';
+    if ((month === 9 && day >= 23) || (month === 10 && day <= 22)) return '♎ Весы';
+    if ((month === 10 && day >= 23) || (month === 11 && day <= 21)) return '♏ Скорпион';
+    if ((month === 11 && day >= 22) || (month === 12 && day <= 21)) return '♐ Стрелец';
+    if ((month === 12 && day >= 22) || (month === 1 && day <= 19)) return '♑ Козерог';
+    if ((month === 1 && day >= 20) || (month === 2 && day <= 18)) return '♒ Водолей';
+    if ((month === 2 && day >= 19) || (month === 3 && day <= 20)) return '♓ Рыбы';
+    
+    return '♈ Овен';
   };
 
   const getLevelTitle = (level: number) => {
@@ -368,7 +384,7 @@ export default function FullProfile() {
                 </div>
                 <div className="flex items-center gap-3">
                   <i className="fas fa-star text-purple-400 w-5"></i>
-                  <span className="text-gray-600 dark:text-gray-300">{getZodiac(currentUser.age)}</span>
+                  <span className="text-gray-600 dark:text-gray-300">{getZodiac()}</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <i className="fas fa-clock text-purple-400 w-5"></i>
@@ -394,52 +410,50 @@ export default function FullProfile() {
                   <i className="fas fa-images text-purple-500"></i>
                   Мои фотографии
                 </h3>
-                {(!currentUser.photos || currentUser.photos.length < 6) && (
+                {(!currentUser.photos || currentUser.photos.length < 30) && (
                   <button
                     onClick={() => photoInputRef.current?.click()}
                     className="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg text-sm font-medium flex items-center gap-2 shadow-lg hover:shadow-xl transition-shadow"
                   >
                     <i className="fas fa-camera"></i>
-                    Добавить фото
+                    Добавить
                   </button>
                 )}
               </div>
               
               {currentUser.photos && currentUser.photos.length > 0 ? (
-                <div className="space-y-4">
+                <div className="grid grid-cols-3 gap-1">
                   {currentUser.photos.map((photo, idx) => (
-                    <div key={idx} className="bg-gray-50 dark:bg-gray-700 rounded-xl overflow-hidden">
-                      {/* Photo */}
-                      <div 
-                        className="relative cursor-pointer group"
-                        onClick={() => {
-                          setSelectedPhoto(photo);
-                          setSelectedPhotoIndex(idx);
-                        }}
-                      >
-                        <img src={photo} alt="" className="w-full aspect-square object-cover" />
-                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                          <i className="fas fa-expand text-white text-3xl opacity-0 group-hover:opacity-100 transition-opacity"></i>
-                        </div>
-                      </div>
-                      
-                      {/* Actions */}
-                      <div className="p-3 flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <button 
-                            onClick={() => togglePhotoLike(idx)}
-                            className="flex items-center gap-1 text-gray-600 dark:text-gray-300 hover:text-pink-500 transition-colors"
+                    <div 
+                      key={idx} 
+                      className="relative aspect-square cursor-pointer group overflow-hidden"
+                      onClick={() => {
+                        setSelectedPhoto(photo);
+                        setSelectedPhotoIndex(idx);
+                      }}
+                    >
+                      <img src={photo} alt="" className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
+                        <div className="flex items-center gap-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              togglePhotoLike(idx);
+                            }}
+                            className="text-white"
                           >
-                            <i className={`${photoLikes[idx] ? 'fas' : 'far'} fa-heart text-xl`}></i>
-                            <span className="text-sm font-medium">{photoLikes[idx] ? 'Нравится' : 'Нравится'}</span>
+                            <i className={`${photoLikes[idx] ? 'fas' : 'far'} fa-heart text-2xl`}></i>
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeletePhoto(idx);
+                            }}
+                            className="text-white"
+                          >
+                            <i className="fas fa-trash text-xl"></i>
                           </button>
                         </div>
-                        <button
-                          onClick={() => handleDeletePhoto(idx)}
-                          className="text-red-500 hover:text-red-600 transition-colors"
-                        >
-                          <i className="fas fa-trash text-lg"></i>
-                        </button>
                       </div>
                     </div>
                   ))}

@@ -31,7 +31,8 @@ export default function ChatScreen() {
     typingUsers,
     setTyping,
     addReaction,
-    markAsRead
+    markAsRead,
+    deleteChat
   } = useStore();
   
   const [text, setText] = useState('');
@@ -116,6 +117,19 @@ export default function ChatScreen() {
             <div className="text-xs text-green-600">онлайн</div>
           </div>
         </div>
+        <button
+          onClick={() => {
+            if (confirm(`Удалить чат с ${selectedUser.name}? Все сообщения будут удалены.`)) {
+              deleteChat(selectedUser.id).then(() => {
+                setShowChat(false);
+                setSelectedUser(null);
+              });
+            }
+          }}
+          className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-red-100 dark:hover:bg-red-900/20 text-red-500 transition-colors"
+        >
+          <i className="fas fa-trash text-lg"></i>
+        </button>
       </div>
 
       {/* Messages */}

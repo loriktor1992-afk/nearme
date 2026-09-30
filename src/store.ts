@@ -118,6 +118,7 @@ interface AppState {
   setTyping: (userId: string) => void;
   addReaction: (messageId: string, emoji: string) => void;
   markAsRead: (messageId: string) => void;
+  deleteChat: (userId: string) => Promise<void>;
   uploadAvatar: (file: File) => Promise<string>;
   uploadPhoto: (file: File) => Promise<string>;
   deletePhoto: (photoIndex: number) => void;
@@ -379,8 +380,8 @@ export const useStore = create<AppState>((set, get) => ({
   uploadPhoto: async (file: File) => {
     const { currentUser } = get();
     if (!currentUser) throw new Error('No user');
-    if (currentUser.photos && currentUser.photos.length >= 6) {
-      throw new Error('Maximum 6 photos allowed');
+    if (currentUser.photos && currentUser.photos.length >= 30) {
+      throw new Error('Maximum 30 photos allowed');
     }
 
     // Конвертируем файл в base64
@@ -794,6 +795,30 @@ export const useStore = create<AppState>((set, get) => ({
   markAsRead: (messageId) => {
     const messageRef = ref(db, `messages/${messageId}/read`);
     fbSet(messageRef, true);
+  },
+
+  deleteChat: async (userId) => {
+    const { currentUser, messages } = get();
+    if (!currentUser) return;
+
+    // Находим все сообщения между currentUser и userId
+    const chatMessages = messages.filter(m => 
+      (m.fromId === currentUser.id && m.toId === userId) ||
+      (m.fromId === userId && m.toId === currentUser.id)
+    );
+
+    // Удаляем все сообщения из Firebase
+    for (const msg of chatMessages) {
+      const messageRef = ref(db, `messages/${msg.id}`);
+      await fbSet(messageRef, null);
+    }
+
+    // Обновляем локальное состояние
+    const updatedMessages = messages.filter(m => 
+      !((m.fromId === currentUser.id && m.toId === userId) ||
+        (m.fromId === userId && m.toId === currentUser.id))
+    );
+    set({ messages: updatedMessages });
   },
 
   updateLocation: (lat, lng) => {

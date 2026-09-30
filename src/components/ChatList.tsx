@@ -2,7 +2,7 @@ import React from 'react';
 import { useStore } from '../store';
 
 export default function ChatList() {
-  const { messages, currentUser, onlineUsers, setSelectedUser, setShowChat, setShowChatList } = useStore();
+  const { messages, currentUser, onlineUsers, setSelectedUser, setShowChat, setShowChatList, deleteChat } = useStore();
 
   if (!currentUser) return null;
 
@@ -116,6 +116,18 @@ export default function ChatList() {
                       {chat.unread}
                     </div>
                   )}
+                  
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (confirm(`Удалить чат с ${partner.name}? Все сообщения будут удалены.`)) {
+                        deleteChat(partnerId);
+                      }
+                    }}
+                    className="ml-2 w-8 h-8 flex items-center justify-center rounded-full hover:bg-red-100 dark:hover:bg-red-900/20 text-red-500 transition-colors"
+                  >
+                    <i className="fas fa-trash text-sm"></i>
+                  </button>
                 </div>
               );
             })}
