@@ -7,6 +7,9 @@ export default function FullProfile() {
   const [editing, setEditing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
+  const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+  const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number>(0);
+  const [photoLikes, setPhotoLikes] = useState<Record<number, boolean>>({});
 
   // Form states
   const [editName, setEditName] = useState(currentUser?.name || '');
@@ -14,6 +17,7 @@ export default function FullProfile() {
   const [editStatus, setEditStatus] = useState(currentUser?.status || '');
   const [editCity, setEditCity] = useState(currentUser?.city || '');
   const [editHeight, setEditHeight] = useState(currentUser?.height || 0);
+  const [editBirthYear, setEditBirthYear] = useState(currentUser?.birthYear || new Date().getFullYear() - (currentUser?.age || 0));
   const [editLookingFor, setEditLookingFor] = useState(currentUser?.lookingFor || '');
   const [editActivityTime, setEditActivityTime] = useState(currentUser?.activityTime || '');
   const [editInterests, setEditInterests] = useState(currentUser?.interests?.join(', ') || '');
@@ -65,16 +69,32 @@ export default function FullProfile() {
   const handleDeletePhoto = (index: number) => {
     if (confirm('Удалить это фото?')) {
       deletePhoto(index);
+      // Удаляем лайк если он был
+      const newLikes = { ...photoLikes };
+      delete newLikes[index];
+      setPhotoLikes(newLikes);
     }
   };
 
+  const togglePhotoLike = (index: number) => {
+    setPhotoLikes(prev => ({
+      ...prev,
+      [index]: !prev[index]
+    }));
+  };
+
   const handleSave = () => {
+    const currentYear = new Date().getFullYear();
+    const newAge = currentYear - editBirthYear;
+    
     updateProfile({
       name: editName.trim() || currentUser.name,
       bio: editBio.trim(),
       status: editStatus.trim(),
       city: editCity.trim(),
       height: editHeight,
+      birthYear: editBirthYear,
+      age: newAge,
       lookingFor: editLookingFor.trim(),
       activityTime: editActivityTime.trim(),
       interests: editInterests.split(',').map(i => i.trim()).filter(i => i),
@@ -273,6 +293,24 @@ export default function FullProfile() {
                   )}
                 </div>
                 <div className="flex items-center gap-3">
+                  <i className="fas fa-birthday-cake text-purple-400 w-5"></i>
+                  {editing ? (
+                    <input
+                      type="number"
+                      value={editBirthYear}
+                      onChange={e => setEditBirthYear(parseInt(e.target.value) || 0)}
+                      placeholder="Год рождения"
+                      min="1950"
+                      max={new Date().getFullYear() - 14}
+                      className="flex-1 px-3 py-1 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white"
+                    />
+                  ) : (
+                    <span className="text-gray-600 dark:text-gray-300">
+                      {currentUser.birthYear ? `${currentUser.birthYear} г. (${currentUser.age} лет)` : `${currentUser.age} лет`}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-3">
                   <i className="fas fa-star text-purple-400 w-5"></i>
                   <span className="text-gray-600 dark:text-gray-300">{getZodiac(currentUser.age)}</span>
                 </div>
@@ -293,44 +331,77 @@ export default function FullProfile() {
               </div>
             </div>
 
-            {/* Photo Gallery */}
+            {/* Photo Gallery Feed */}
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-5">
-              <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center justify-between mb-4">
                 <h3 className="font-bold text-gray-800 dark:text-white flex items-center gap-2">
                   <i className="fas fa-images text-purple-500"></i>
-                  Фотографии ({currentUser.photos?.length || 0}/6)
+                  Мои фотографии
                 </h3>
                 {(!currentUser.photos || currentUser.photos.length < 6) && (
                   <button
                     onClick={() => photoInputRef.current?.click()}
-                    className="px-3 py-1 bg-purple-500 text-white rounded-lg text-sm flex items-center gap-1"
+                    className="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg text-sm font-medium flex items-center gap-2 shadow-lg hover:shadow-xl transition-shadow"
                   >
-                    <i className="fas fa-plus"></i>
-                    Добавить
+                    <i className="fas fa-camera"></i>
+                    Добавить фото
                   </button>
                 )}
               </div>
-              <div className="grid grid-cols-3 gap-2">
-                {currentUser.photos && currentUser.photos.map((photo, idx) => (
-                  <div key={idx} className="relative aspect-square rounded-lg overflow-hidden group">
-                    <img src={photo} alt="" className="w-full h-full object-cover" />
-                    <button
-                      onClick={() => handleDeletePhoto(idx)}
-                      className="absolute top-1 right-1 w-6 h-6 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
-                    >
-                      <i className="fas fa-times text-xs"></i>
-                    </button>
-                  </div>
-                ))}
-                {(!currentUser.photos || currentUser.photos.length < 6) && (
+              
+              {currentUser.photos && currentUser.photos.length > 0 ? (
+                <div className="space-y-4">
+                  {currentUser.photos.map((photo, idx) => (
+                    <div key={idx} className="bg-gray-50 dark:bg-gray-700 rounded-xl overflow-hidden">
+                      {/* Photo */}
+                      <div 
+                        className="relative cursor-pointer group"
+                        onClick={() => {
+                          setSelectedPhoto(photo);
+                          setSelectedPhotoIndex(idx);
+                        }}
+                      >
+                        <img src={photo} alt="" className="w-full aspect-square object-cover" />
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                          <i className="fas fa-expand text-white text-3xl opacity-0 group-hover:opacity-100 transition-opacity"></i>
+                        </div>
+                      </div>
+                      
+                      {/* Actions */}
+                      <div className="p-3 flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <button 
+                            onClick={() => togglePhotoLike(idx)}
+                            className="flex items-center gap-1 text-gray-600 dark:text-gray-300 hover:text-pink-500 transition-colors"
+                          >
+                            <i className={`${photoLikes[idx] ? 'fas' : 'far'} fa-heart text-xl`}></i>
+                            <span className="text-sm font-medium">{photoLikes[idx] ? 'Нравится' : 'Нравится'}</span>
+                          </button>
+                        </div>
+                        <button
+                          onClick={() => handleDeletePhoto(idx)}
+                          className="text-red-500 hover:text-red-600 transition-colors"
+                        >
+                          <i className="fas fa-trash text-lg"></i>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <i className="fas fa-camera text-6xl text-gray-300 dark:text-gray-600 mb-4"></i>
+                  <p className="text-gray-500 dark:text-gray-400 mb-2">Пока нет фотографий</p>
+                  <p className="text-sm text-gray-400 dark:text-gray-500 mb-4">Добавьте первое фото в свою ленту</p>
                   <button
                     onClick={() => photoInputRef.current?.click()}
-                    className="aspect-square rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center text-gray-400 hover:border-purple-500 hover:text-purple-500 transition-colors"
+                    className="px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg font-medium shadow-lg hover:shadow-xl transition-shadow"
                   >
-                    <i className="fas fa-plus text-2xl"></i>
+                    <i className="fas fa-camera mr-2"></i>
+                    Добавить первое фото
                   </button>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -546,6 +617,68 @@ export default function FullProfile() {
         onChange={handleGalleryPhotoUpload}
         className="hidden"
       />
+
+      {/* Photo Viewer Modal */}
+      {selectedPhoto && (
+        <div 
+          className="fixed inset-0 z-[3000] bg-black/95 flex items-center justify-center"
+          onClick={() => setSelectedPhoto(null)}
+        >
+          <button
+            onClick={() => setSelectedPhoto(null)}
+            className="absolute top-4 right-4 w-12 h-12 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center transition-colors"
+          >
+            <i className="fas fa-times text-white text-xl"></i>
+          </button>
+          
+          <div className="relative max-w-4xl max-h-[90vh] p-4" onClick={e => e.stopPropagation()}>
+            <img 
+              src={selectedPhoto} 
+              alt="" 
+              className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl"
+            />
+            
+            {/* Navigation */}
+            {currentUser.photos && currentUser.photos.length > 1 && (
+              <>
+                {selectedPhotoIndex > 0 && (
+                  <button
+                    onClick={() => {
+                      const newIndex = selectedPhotoIndex - 1;
+                      setSelectedPhotoIndex(newIndex);
+                      setSelectedPhoto(currentUser.photos![newIndex]);
+                    }}
+                    className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-16 w-12 h-12 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center transition-colors"
+                  >
+                    <i className="fas fa-chevron-left text-white text-xl"></i>
+                  </button>
+                )}
+                {selectedPhotoIndex < currentUser.photos.length - 1 && (
+                  <button
+                    onClick={() => {
+                      const newIndex = selectedPhotoIndex + 1;
+                      setSelectedPhotoIndex(newIndex);
+                      setSelectedPhoto(currentUser.photos![newIndex]);
+                    }}
+                    className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-16 w-12 h-12 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center transition-colors"
+                  >
+                    <i className="fas fa-chevron-right text-white text-xl"></i>
+                  </button>
+                )}
+              </>
+            )}
+            
+            {/* Photo counter */}
+            {currentUser.photos && currentUser.photos.length > 1 && (
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/50 backdrop-blur px-4 py-2 rounded-full">
+                <span className="text-white text-sm">
+                  {selectedPhotoIndex + 1} / {currentUser.photos.length}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -6,6 +6,7 @@ export interface User {
   id: string;
   name: string;
   age: number;
+  birthYear: number; // год рождения
   gender: 'male' | 'female';
   bio: string;
   avatar: string; // emoji fallback
@@ -225,6 +226,7 @@ export const useStore = create<AppState>((set, get) => ({
             id: 'demo_alina',
             name: 'Алина',
             age: 22,
+            birthYear: 2002,
             gender: 'female',
             bio: 'Люблю кофе и прогулки ☕',
             avatar: '👩‍🦰',
@@ -256,6 +258,7 @@ export const useStore = create<AppState>((set, get) => ({
             id: 'demo_maxim',
             name: 'Максим',
             age: 25,
+            birthYear: 1999,
             gender: 'male',
             bio: 'Фотограф 📸',
             avatar: '👨‍🦱',
@@ -287,6 +290,7 @@ export const useStore = create<AppState>((set, get) => ({
             id: 'demo_darya',
             name: 'Дарья',
             age: 20,
+            birthYear: 2004,
             gender: 'female',
             bio: 'Студентка, люблю музыку 🎵',
             avatar: '👩',
