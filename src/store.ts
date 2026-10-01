@@ -88,6 +88,7 @@ interface AppState {
   isRegistered: boolean;
   currentUser: User | null;
   onlineUsers: User[];
+  allUsers: User[]; // Все пользователи (для чатов)
   totalUsers: number;
   districts: District[];
   currentDistrict: District | null;
@@ -170,6 +171,7 @@ export const useStore = create<AppState>((set, get) => ({
   isRegistered: false,
   currentUser: null,
   onlineUsers: [],
+  allUsers: [],
   totalUsers: 0,
   districts: [],
   currentDistrict: null,
@@ -898,7 +900,11 @@ export const useStore = create<AppState>((set, get) => ({
           .filter(u => u.id !== get().currentUser?.id)
           .filter(u => Date.now() - u.lastSeen < 30 * 60 * 1000); // 30 минут
 
-        set({ onlineUsers: onlineUsers, totalUsers: allUsers.length });
+        set({ 
+          onlineUsers: onlineUsers, 
+          allUsers: allUsers.filter(u => u.id !== get().currentUser?.id), // Все пользователи кроме текущего
+          totalUsers: allUsers.length 
+        });
       } catch (error) {
         logError(error, 'listenForUsers');
       }

@@ -76,8 +76,7 @@ function createUserIcon(avatar: string, photoUrl: string, isMe: boolean = false,
 // }
 
 export default function MapScreen() {
-  const { currentUser, onlineUsers, totalUsers, setSelectedUser, setShowChat, showChat, showProfile, showFilters, setShowFilters, showFullProfile, setShowFullProfile, showDistricts, setShowDistricts, currentDistrict, filters, updateLocation, toastMessage, getUnreadCount } = useStore();
-  const [showChatList, setShowChatList] = useState(false);
+  const { currentUser, onlineUsers, totalUsers, setSelectedUser, setShowChat, showChat, showProfile, showFilters, setShowFilters, showFullProfile, setShowFullProfile, showDistricts, setShowDistricts, showChatList, setShowChatList, currentDistrict, filters, updateLocation, toastMessage, getUnreadCount } = useStore();
   const [centerLat, setCenterLat] = useState(currentUser?.lat || 55.751);
   const [centerLng, setCenterLng] = useState(currentUser?.lng || 37.618);
   const [showNearby, setShowNearby] = useState(false);

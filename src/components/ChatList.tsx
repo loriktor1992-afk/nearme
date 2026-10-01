@@ -3,7 +3,7 @@ import { useStore } from '../store';
 import { formatTime } from '../utils/helpers';
 
 export default function ChatList() {
-  const { messages, currentUser, onlineUsers, setSelectedUser, setShowChat, setShowChatList, deleteChat } = useStore();
+  const { messages, currentUser, allUsers, setSelectedUser, setShowChat, setShowChatList, deleteChat } = useStore();
   const [searchQuery, setSearchQuery] = useState('');
 
   if (!currentUser) return null;
@@ -45,13 +45,13 @@ export default function ChatList() {
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       chats = chats.filter(([partnerId]) => {
-        const partner = onlineUsers.find(u => u.id === partnerId);
+        const partner = allUsers.find(u => u.id === partnerId);
         return partner && partner.name.toLowerCase().includes(query);
       });
     }
 
     return chats;
-  }, [chatPartners, searchQuery, onlineUsers]);
+  }, [chatPartners, searchQuery, allUsers]);
 
   return (
     <div className="fixed inset-0 z-[2500] bg-gray-50 dark:bg-gray-900 overflow-y-auto">
@@ -92,7 +92,7 @@ export default function ChatList() {
         ) : (
           <div className="space-y-2">
             {sortedChats.map(([partnerId, chat]) => {
-              const partner = onlineUsers.find(u => u.id === partnerId);
+              const partner = allUsers.find(u => u.id === partnerId);
               if (!partner) return null;
 
               return (
