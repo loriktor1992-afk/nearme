@@ -1,75 +1,93 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { useStore } from '../store';
+import { formatTime } from '../utils/helpers';
 
 export default function ChatList() {
   const { messages, currentUser, onlineUsers, setSelectedUser, setShowChat, setShowChatList, deleteChat } = useStore();
+  const [searchQuery, setSearchQuery] = useState('');
 
   if (!currentUser) return null;
 
   // Группируем сообщения по собеседникам
-  const chatPartners = new Map<string, { lastMessage: string; timestamp: number; unread: number }>();
+  const chatPartners = useMemo(() => {
+    const partners = new Map<string, { lastMessage: string; timestamp: number; unread: number }>();
 
-  messages.forEach(msg => {
-    const partnerId = msg.fromId === currentUser.id ? msg.toId : msg.fromId;
-    const existing = chatPartners.get(partnerId);
-    
-    if (!existing || msg.timestamp > existing.timestamp) {
-      chatPartners.set(partnerId, {
-        lastMessage: msg.text,
-        timestamp: msg.timestamp,
-        unread: 0,
+    messages.forEach(msg => {
+      const partnerId = msg.fromId === currentUser.id ? msg.toId : msg.fromId;
+      const existing = partners.get(partnerId);
+      
+      if (!existing || msg.timestamp > existing.timestamp) {
+        partners.set(partnerId, {
+          lastMessage: msg.text,
+          timestamp: msg.timestamp,
+          unread: 0,
+        });
+      }
+
+      // Подсчитываем непрочитанные
+      if (msg.toId === currentUser.id && !msg.read) {
+        const current = partners.get(partnerId);
+        if (current) {
+          current.unread++;
+        }
+      }
+    });
+
+    return partners;
+  }, [messages, currentUser.id]);
+
+  // Фильтруем и сортируем чаты
+  const sortedChats = useMemo(() => {
+    let chats = Array.from(chatPartners.entries())
+      .sort((a, b) => b[1].timestamp - a[1].timestamp);
+
+    // Фильтруем по поисковому запросу
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      chats = chats.filter(([partnerId]) => {
+        const partner = onlineUsers.find(u => u.id === partnerId);
+        return partner && partner.name.toLowerCase().includes(query);
       });
     }
 
-    // Подсчитываем непрочитанные
-    if (msg.toId === currentUser.id && !msg.read) {
-      const current = chatPartners.get(partnerId);
-      if (current) {
-        current.unread++;
-      }
-    }
-  });
-
-  // Сортируем по времени последнего сообщения
-  const sortedChats = Array.from(chatPartners.entries())
-    .sort((a, b) => b[1].timestamp - a[1].timestamp);
-
-  const formatTime = (timestamp: number) => {
-    const now = Date.now();
-    const diff = now - timestamp;
-    const minutes = Math.floor(diff / 60000);
-    const hours = Math.floor(diff / 3600000);
-    const days = Math.floor(diff / 86400000);
-
-    if (minutes < 1) return 'сейчас';
-    if (minutes < 60) return `${minutes} мин`;
-    if (hours < 24) return `${hours} ч`;
-    if (days === 1) return 'вчера';
-    if (days < 7) return `${days} дн`;
-    
-    const date = new Date(timestamp);
-    return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
-  };
+    return chats;
+  }, [chatPartners, searchQuery, onlineUsers]);
 
   return (
     <div className="fixed inset-0 z-[2500] bg-gray-50 dark:bg-gray-900 overflow-y-auto">
       {/* Header */}
-      <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3 flex items-center gap-3 z-10">
-        <button
-          onClick={() => setShowChatList(false)}
-          className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
-        >
-          <i className="fas fa-arrow-left text-gray-600 dark:text-gray-300"></i>
-        </button>
-        <h2 className="text-xl font-bold text-gray-800 dark:text-white">Чаты</h2>
+      <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3 z-10">
+        <div className="flex items-center gap-3 mb-3">
+          <button
+            onClick={() => setShowChatList(false)}
+            className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
+          >
+            <i className="fas fa-arrow-left text-gray-600 dark:text-gray-300"></i>
+          </button>
+          <h2 className="text-xl font-bold text-gray-800 dark:text-white">Чаты</h2>
+        </div>
+        
+        {/* Поиск */}
+        <div className="relative">
+          <i className="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            placeholder="Поиск по имени..."
+            className="w-full pl-10 pr-4 py-2 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 outline-none focus:ring-2 focus:ring-purple-500"
+          />
+        </div>
       </div>
 
       <div className="p-4">
         {sortedChats.length === 0 ? (
           <div className="text-center py-12 text-gray-400">
             <div className="text-5xl mb-3">💬</div>
-            <p>Пока нет чатов</p>
-            <p className="text-sm mt-1">Начни общение с кем-нибудь!</p>
+            <p>{searchQuery ? 'Ничего не найдено' : 'Пока нет чатов'}</p>
+            <p className="text-sm mt-1">
+              {searchQuery ? 'Попробуйте другой запрос' : 'Начни общение с кем-нибудь!'}
+            </p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -94,7 +112,7 @@ export default function ChatList() {
                         {partner.avatar}
                       </div>
                     )}
-                    <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-white"></div>
+                    <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-white dark:border-gray-800"></div>
                   </div>
 
                   <div className="flex-1 min-w-0">

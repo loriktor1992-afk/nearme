@@ -10,6 +10,8 @@ import DistrictsPanel from './DistrictsPanel';
 import DistrictView from './DistrictView';
 import ChatList from './ChatList';
 import Toast from './Toast';
+import ThemeToggle from './ThemeToggle';
+import { getDistance, formatDistance } from '../utils/helpers';
 
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -105,17 +107,6 @@ export default function MapScreen() {
 
   const handleCloseExpanded = () => {
     setExpandedMarker(null);
-  };
-
-  const getDistance = (lat1: number, lng1: number, lat2: number, lng2: number) => {
-    const R = 6371000;
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLng = (lng2 - lng1) * Math.PI / 180;
-    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-      Math.sin(dLng / 2) * Math.sin(dLng / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
   };
 
   const nearbyUsers = useMemo(() => {
@@ -220,7 +211,7 @@ export default function MapScreen() {
                 </div>
                 {user.status && <div className="text-xs text-gray-500 mt-0.5 italic">"{user.status}"</div>}
                 <div className="text-xs text-gray-500 mt-1">
-                  {Math.round(getDistance(currentUser.lat, currentUser.lng, user.lat, user.lng))}м от тебя
+                  {formatDistance(getDistance(currentUser.lat, currentUser.lng, user.lat, user.lng))} от тебя
                 </div>
                 <div className="text-xs text-gray-400 mt-0.5">
                   {Date.now() - user.lastSeen < 5 * 60 * 1000 
@@ -259,21 +250,22 @@ export default function MapScreen() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={() => setShowFullProfile(true)} className="bg-purple-100 px-3 py-1.5 rounded-full active:scale-95 transition-transform">
-              <i className="fas fa-user text-purple-600 text-sm"></i>
+            <button onClick={() => setShowFullProfile(true)} className="bg-purple-100 dark:bg-purple-900/30 px-3 py-1.5 rounded-full active:scale-95 transition-transform">
+              <i className="fas fa-user text-purple-600 dark:text-purple-400 text-sm"></i>
             </button>
-            <button onClick={() => setShowChatList(true)} className="bg-pink-100 px-3 py-1.5 rounded-full active:scale-95 transition-transform relative">
-              <i className="fas fa-comment-dots text-pink-600 text-sm"></i>
+            <button onClick={() => setShowChatList(true)} className="bg-pink-100 dark:bg-pink-900/30 px-3 py-1.5 rounded-full active:scale-95 transition-transform relative">
+              <i className="fas fa-comment-dots text-pink-600 dark:text-pink-400 text-sm"></i>
               {getUnreadCount() > 0 && (
                 <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
                   {getUnreadCount()}
                 </span>
               )}
             </button>
-            <div className="bg-blue-100 px-3 py-1 rounded-full">
-              <span className="text-blue-700 font-bold text-sm">{totalUsers}</span>
-              <span className="text-blue-500 text-xs ml-1">всего</span>
+            <div className="bg-blue-100 dark:bg-blue-900/30 px-3 py-1 rounded-full">
+              <span className="text-blue-700 dark:text-blue-400 font-bold text-sm">{totalUsers}</span>
+              <span className="text-blue-500 dark:text-blue-400 text-xs ml-1">всего</span>
             </div>
+            <ThemeToggle />
           </div>
         </div>
       </div>

@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+/* Базовые стили */
+html, body {
+  @apply bg-white dark:bg-gray-900 text-gray-900 dark:text-white;
+}
+
+/* Leaflet карта */
 .leaflet-container {
   width: 100%;
   height: 100%;
@@ -9,6 +15,33 @@
 .custom-user-marker {
   background: transparent !important;
   border: none !important;
+}
+
+/* Тёмная тема для Leaflet */
+.dark .leaflet-control-zoom a {
+  @apply bg-gray-800 text-white border-gray-700;
+}
+
+.dark .leaflet-control-attribution {
+  @apply bg-gray-800/80 text-gray-400;
+}
+
+.dark .leaflet-control-attribution a {
+  @apply text-purple-400;
+}
+
+/* Скрываем атрибуцию Leaflet */
+.leaflet-control-attribution {
+  display: none !important;
+  visibility: hidden !important;
+}
+
+.leaflet-control-attribution a {
+  display: none !important;
+}
+
+.leaflet-bottom {
+  display: none !important;
 }
 
 @keyframes slide-up {

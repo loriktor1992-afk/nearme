@@ -1,10 +1,12 @@
 import React, { useState, useRef } from 'react';
 import { useStore } from '../store';
+import { getZodiacSign, calculateAge } from '../utils/helpers';
 
 export default function FullProfile() {
   const { currentUser, setShowFullProfile, uploadAvatar, uploadPhoto, deletePhoto, updateProfile } = useStore();
   const [activeTab, setActiveTab] = useState<'main' | 'about' | 'interests' | 'social' | 'privacy'>('main');
   const [editing, setEditing] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
@@ -45,28 +47,40 @@ export default function FullProfile() {
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 10 * 1024 * 1024) {
-      alert('Фото слишком большое. Максимум 10MB');
+    
+    // Проверка размера - до 50MB
+    if (file.size > 50 * 1024 * 1024) {
+      alert('Фото слишком большое. Максимум 50MB');
       return;
     }
+    
+    setUploading(true);
     try {
       await uploadAvatar(file);
-    } catch (error) {
-      alert('Ошибка загрузки фото');
+    } catch (error: any) {
+      alert(error.message || 'Ошибка загрузки фото');
+    } finally {
+      setUploading(false);
     }
   };
 
   const handleGalleryPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 10 * 1024 * 1024) {
-      alert('Фото слишком большое. Максимум 10MB');
+    
+    // Проверка размера - до 50MB
+    if (file.size > 50 * 1024 * 1024) {
+      alert('Фото слишком большое. Максимум 50MB');
       return;
     }
+    
+    setUploading(true);
     try {
       await uploadPhoto(file);
     } catch (error: any) {
       alert(error.message || 'Ошибка загрузки фото');
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -146,22 +160,7 @@ export default function FullProfile() {
   const getZodiac = () => {
     const day = currentUser.birthDay || 1;
     const month = currentUser.birthMonth || 1;
-    
-    // Определяем знак зодиака по дате рождения
-    if ((month === 3 && day >= 21) || (month === 4 && day <= 19)) return '♈ Овен';
-    if ((month === 4 && day >= 20) || (month === 5 && day <= 20)) return '♉ Телец';
-    if ((month === 5 && day >= 21) || (month === 6 && day <= 20)) return '♊ Близнецы';
-    if ((month === 6 && day >= 21) || (month === 7 && day <= 22)) return '♋ Рак';
-    if ((month === 7 && day >= 23) || (month === 8 && day <= 22)) return '♌ Лев';
-    if ((month === 8 && day >= 23) || (month === 9 && day <= 22)) return '♍ Дева';
-    if ((month === 9 && day >= 23) || (month === 10 && day <= 22)) return '♎ Весы';
-    if ((month === 10 && day >= 23) || (month === 11 && day <= 21)) return '♏ Скорпион';
-    if ((month === 11 && day >= 22) || (month === 12 && day <= 21)) return '♐ Стрелец';
-    if ((month === 12 && day >= 22) || (month === 1 && day <= 19)) return '♑ Козерог';
-    if ((month === 1 && day >= 20) || (month === 2 && day <= 18)) return '♒ Водолей';
-    if ((month === 2 && day >= 19) || (month === 3 && day <= 20)) return '♓ Рыбы';
-    
-    return '♈ Овен';
+    return getZodiacSign(day, month);
   };
 
   const getLevelTitle = (level: number) => {
@@ -222,9 +221,14 @@ export default function FullProfile() {
             </div>
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="absolute bottom-1 right-1 w-10 h-10 bg-white rounded-full shadow-lg flex items-center justify-center"
+              disabled={uploading}
+              className="absolute bottom-1 right-1 w-10 h-10 bg-white rounded-full shadow-lg flex items-center justify-center disabled:opacity-50"
             >
-              <i className="fas fa-camera text-purple-600"></i>
+              {uploading ? (
+                <i className="fas fa-spinner fa-spin text-purple-600"></i>
+              ) : (
+                <i className="fas fa-camera text-purple-600"></i>
+              )}
             </button>
             {currentUser.verified === true && (
               <div className="absolute top-0 right-0 w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center border-2 border-white">

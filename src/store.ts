@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { ref, set as fbSet, onValue, push, update, onDisconnect } from 'firebase/database';
 import { db } from './firebase';
+import { compressImage, isValidImageFile } from './utils/imageCompressor';
+import { logError, rateLimiter } from './utils/helpers';
 
 export interface User {
   id: string;
@@ -100,6 +102,7 @@ interface AppState {
   showChatList: boolean;
   typingUsers: Record<string, number>; // userId -> timestamp
   filters: Filters;
+  theme: 'light' | 'dark';
   
   register: (user: Omit<User, 'id' | 'lat' | 'lng' | 'isOnline' | 'lastSeen'>) => void;
   setSelectedUser: (user: User | null) => void;
@@ -150,6 +153,9 @@ interface AppState {
   setShowDistricts: (show: boolean) => void;
   listenForDistricts: () => void;
   listenForInvites: () => void;
+  
+  // Theme
+  setTheme: (theme: 'light' | 'dark') => void;
 }
 
 const generateUserId = () => {
@@ -179,9 +185,9 @@ export const useStore = create<AppState>((set, get) => ({
   typingUsers: {},
   toastMessage: null,
   filters: { gender: 'all', ageMin: 14, ageMax: 99, distanceMax: 50 },
-
-  register: (userData) => {
-    const userId = generateUserId();
+  theme: (localStorage.getItem('nearme_theme') as 'light' | 'dark') || 'light',
+  
+  register: (userData) => {    const userId = generateUserId();
     const lat = 55.751 + (Math.random() - 0.5) * 0.02;
     const lng = 37.618 + (Math.random() - 0.5) * 0.02;
 
@@ -361,46 +367,75 @@ export const useStore = create<AppState>((set, get) => ({
     const { currentUser } = get();
     if (!currentUser) throw new Error('No user');
 
-    // Конвертируем файл в base64
-    const base64 = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = reject;
-    });
+    // Проверяем тип файла
+    if (!isValidImageFile(file)) {
+      throw new Error('Недопустимый тип файла. Используйте JPEG, PNG, GIF или WebP');
+    }
 
-    // Сохраняем в Firebase
-    const userRef = ref(db, `users/${currentUser.id}/photoUrl`);
-    fbSet(userRef, base64);
+    try {
+      // Сжимаем изображение - увеличенные лимиты для лучшего качества
+      const compressed = await compressImage(file, {
+        maxWidth: 1200,
+        maxHeight: 1200,
+        quality: 0.85,
+        maxSizeMB: 3,
+      });
 
-    set({ currentUser: { ...currentUser, photoUrl: base64 } });
-    return base64;
+      // Сохраняем в Firebase
+      const userRef = ref(db, `users/${currentUser.id}/photoUrl`);
+      fbSet(userRef, compressed);
+
+      set({ currentUser: { ...currentUser, photoUrl: compressed } });
+      return compressed;
+    } catch (error) {
+      logError(error, 'uploadAvatar');
+      throw new Error('Ошибка при загрузке фото');
+    }
   },
 
   uploadPhoto: async (file: File) => {
     const { currentUser } = get();
     if (!currentUser) throw new Error('No user');
+    
+    // Rate limiting: максимум 10 загрузок в минуту
+    if (!rateLimiter.canPerform('uploadPhoto', 10, 60000)) {
+      throw new Error('Слишком много загрузок. Подождите минуту');
+    }
+    
     if (currentUser.photos && currentUser.photos.length >= 30) {
-      throw new Error('Maximum 30 photos allowed');
+      throw new Error('Максимум 30 фотографий');
     }
 
-    // Конвертируем файл в base64
-    const base64 = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = reject;
-    });
+    // Проверяем тип файла
+    if (!isValidImageFile(file)) {
+      throw new Error('Недопустимый тип файла. Используйте JPEG, PNG, GIF или WebP');
+    }
 
-    // Добавляем в массив photos
-    const photos = currentUser.photos || [];
-    const newPhotos = [...photos, base64];
-    
-    const userRef = ref(db, `users/${currentUser.id}/photos`);
-    fbSet(userRef, newPhotos);
+    try {
+      // Сжимаем изображение - увеличенные лимиты для лучшего качества
+      const compressed = await compressImage(file, {
+        maxWidth: 1920,
+        maxHeight: 1920,
+        quality: 0.9,
+        maxSizeMB: 5,
+      });
 
-    set({ currentUser: { ...currentUser, photos: newPhotos } });
-    return base64;
+      // Добавляем в массив photos
+      const photos = currentUser.photos || [];
+      const newPhotos = [...photos, compressed];
+      
+      const userRef = ref(db, `users/${currentUser.id}/photos`);
+      fbSet(userRef, newPhotos);
+
+      // Записываем попытку
+      rateLimiter.record('uploadPhoto');
+
+      set({ currentUser: { ...currentUser, photos: newPhotos } });
+      return compressed;
+    } catch (error) {
+      logError(error, 'uploadPhoto');
+      throw new Error('Ошибка при загрузке фото');
+    }
   },
 
   deletePhoto: (photoIndex: number) => {
@@ -849,20 +884,26 @@ export const useStore = create<AppState>((set, get) => ({
   listenForUsers: () => {
     const usersRef = ref(db, 'users');
     onValue(usersRef, (snapshot) => {
-      const data = snapshot.val();
-      if (!data) {
-        set({ onlineUsers: [], totalUsers: 0 });
-        return;
+      try {
+        const data = snapshot.val();
+        if (!data) {
+          set({ onlineUsers: [], totalUsers: 0 });
+          return;
+        }
+
+        const allUsers: User[] = Object.entries(data)
+          .map(([id, userData]) => ({ ...(userData as User), id }));
+
+        const onlineUsers: User[] = allUsers
+          .filter(u => u.id !== get().currentUser?.id)
+          .filter(u => Date.now() - u.lastSeen < 30 * 60 * 1000); // 30 минут
+
+        set({ onlineUsers: onlineUsers, totalUsers: allUsers.length });
+      } catch (error) {
+        logError(error, 'listenForUsers');
       }
-
-      const allUsers: User[] = Object.entries(data)
-        .map(([id, userData]) => ({ ...(userData as User), id }));
-
-      const onlineUsers: User[] = allUsers
-        .filter(u => u.id !== get().currentUser?.id)
-        .filter(u => Date.now() - u.lastSeen < 30 * 60 * 1000); // 30 минут
-
-      set({ onlineUsers: onlineUsers, totalUsers: allUsers.length });
+    }, (error) => {
+      logError(error, 'listenForUsers callback');
     });
   },
 
@@ -872,19 +913,30 @@ export const useStore = create<AppState>((set, get) => ({
 
     const messagesRef = ref(db, 'messages');
     onValue(messagesRef, (snapshot) => {
-      const data = snapshot.val();
-      if (!data) {
-        set({ messages: [] });
-        return;
+      try {
+        const data = snapshot.val();
+        if (!data) {
+          set({ messages: [] });
+          return;
+        }
+
+        const allMessages: Message[] = Object.entries(data)
+          .map(([id, msgData]) => ({ ...(msgData as Message), id }))
+          .filter(m => m.fromId === currentUser.id || m.toId === currentUser.id)
+          .sort((a, b) => a.timestamp - b.timestamp);
+
+        set({ messages: allMessages });
+      } catch (error) {
+        logError(error, 'listenForMessages');
       }
-
-      const allMessages: Message[] = Object.entries(data)
-        .map(([id, msgData]) => ({ ...(msgData as Message), id }))
-        .filter(m => m.fromId === currentUser.id || m.toId === currentUser.id)
-        .sort((a, b) => a.timestamp - b.timestamp);
-
-      set({ messages: allMessages });
+    }, (error) => {
+      logError(error, 'listenForMessages callback');
     });
+  },
+
+  setTheme: (theme) => {
+    localStorage.setItem('nearme_theme', theme);
+    set({ theme });
   },
 }));
 

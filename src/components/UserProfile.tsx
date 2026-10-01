@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useStore } from '../store';
+import { getDistance, formatDistance } from '../utils/helpers';
 
 export default function UserProfile() {
   const { selectedUser, currentUser, setShowProfile, setShowChat, uploadAvatar, updateStatus, likeUser, unlikeUser, viewProfile } = useStore();
@@ -32,26 +33,15 @@ export default function UserProfile() {
     }
   };
 
-  const getDistance = (lat1: number, lng1: number, lat2: number, lng2: number) => {
-    const R = 6371000;
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLng = (lng2 - lng1) * Math.PI / 180;
-    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-      Math.sin(dLng / 2) * Math.sin(dLng / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  };
-
-  const distance = Math.round(getDistance(currentUser.lat, currentUser.lng, selectedUser.lat, selectedUser.lng));
+  const distance = getDistance(currentUser.lat, currentUser.lng, selectedUser.lat, selectedUser.lng);
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     
-    // Проверка размера (макс 2MB)
-    if (file.size > 2 * 1024 * 1024) {
-      alert('Фото слишком большое. Максимум 2MB');
+    // Проверка размера - до 50MB
+    if (file.size > 50 * 1024 * 1024) {
+      alert('Фото слишком большое. Максимум 50MB');
       return;
     }
 
@@ -157,7 +147,7 @@ export default function UserProfile() {
             {/* Distance */}
             <div className="flex items-center justify-center gap-2">
               <i className="fas fa-location-dot text-purple-500"></i>
-              <span className="text-gray-600">{distance}м от тебя</span>
+              <span className="text-gray-600 dark:text-gray-300">{formatDistance(distance)} от тебя</span>
             </div>
 
             {/* Bio */}

@@ -1,24 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useStore } from '../store';
+import { formatTime } from '../utils/helpers';
 
 const REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🔥'];
-
-function formatTime(timestamp: number): string {
-  const now = Date.now();
-  const diff = now - timestamp;
-  const minutes = Math.floor(diff / 60000);
-  const hours = Math.floor(diff / 3600000);
-  const days = Math.floor(diff / 86400000);
-
-  if (minutes < 1) return 'только что';
-  if (minutes < 60) return `${minutes} мин`;
-  if (hours < 24) return `${hours} ч`;
-  if (days === 1) return 'вчера';
-  if (days < 7) return `${days} дн`;
-  
-  const date = new Date(timestamp);
-  return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
-}
 
 export default function ChatScreen() {
   const { 
