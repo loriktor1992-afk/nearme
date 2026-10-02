@@ -3,6 +3,7 @@ import { ref, set as fbSet, onValue, push, update, onDisconnect } from 'firebase
 import { db } from './firebase';
 import { compressImage, isValidImageFile } from './utils/imageCompressor';
 import { logError, rateLimiter } from './utils/helpers';
+import { notifyNewMessage, notifyNewLike, notifyMatch } from './utils/pushNotifications';
 
 export interface User {
   id: string;
@@ -37,10 +38,15 @@ export interface User {
   level: number; // уровень
   xp: number; // опыт
   achievements: string[]; // достижения
+  isPremium: boolean; // премиум статус
   privacySettings: {
     showDistance: boolean;
     showLastSeen: boolean;
     allowMessages: boolean;
+    visibilityMode: 'online' | 'hidden' | 'ghost'; // режим видимости
+    visibilityRadius: number; // радиус видимости в метрах
+    blockedUsers: string[]; // заблокированные пользователи
+    showOnMap: boolean; // показываться на карте
   };
 }
 
@@ -101,6 +107,9 @@ interface AppState {
   showFullProfile: boolean;
   showDistricts: boolean;
   showChatList: boolean;
+  showAdmin: boolean;
+  showPrivacySettings: boolean;
+  showNotifications: boolean;
   typingUsers: Record<string, number>; // userId -> timestamp
   filters: Filters;
   theme: 'light' | 'dark';
@@ -112,6 +121,9 @@ interface AppState {
   setShowFilters: (show: boolean) => void;
   setShowFullProfile: (show: boolean) => void;
   setShowChatList: (show: boolean) => void;
+  setShowAdmin: (show: boolean) => void;
+  setShowPrivacySettings: (show: boolean) => void;
+  setShowNotifications: (show: boolean) => void;
   setFilters: (filters: Partial<Filters>) => void;
   resetFilters: () => void;
   sendMessage: (text: string) => void;
@@ -184,6 +196,9 @@ export const useStore = create<AppState>((set, get) => ({
   showFullProfile: false,
   showDistricts: false,
   showChatList: false,
+  showAdmin: false,
+  showPrivacySettings: false,
+  showNotifications: false,
   typingUsers: {},
   toastMessage: null,
   filters: { gender: 'all', ageMin: 14, ageMax: 99, distanceMax: 50 },
@@ -266,7 +281,16 @@ export const useStore = create<AppState>((set, get) => ({
             level: 3,
             xp: 150,
             achievements: ['first_chat', '10_likes'],
-            privacySettings: { showDistance: true, showLastSeen: true, allowMessages: true },
+            isPremium: false,
+            privacySettings: { 
+              showDistance: true, 
+              showLastSeen: true, 
+              allowMessages: true,
+              visibilityMode: 'online',
+              visibilityRadius: 5000,
+              blockedUsers: [],
+              showOnMap: true,
+            },
           },
           {
             id: 'demo_maxim',
@@ -300,7 +324,16 @@ export const useStore = create<AppState>((set, get) => ({
             level: 5,
             xp: 320,
             achievements: ['first_chat', '10_likes', 'verified'],
-            privacySettings: { showDistance: true, showLastSeen: true, allowMessages: true },
+            isPremium: false,
+            privacySettings: { 
+              showDistance: true, 
+              showLastSeen: true, 
+              allowMessages: true,
+              visibilityMode: 'online',
+              visibilityRadius: 5000,
+              blockedUsers: [],
+              showOnMap: true,
+            },
           },
           {
             id: 'demo_darya',
@@ -334,7 +367,16 @@ export const useStore = create<AppState>((set, get) => ({
             level: 2,
             xp: 80,
             achievements: ['first_chat'],
-            privacySettings: { showDistance: true, showLastSeen: true, allowMessages: true },
+            isPremium: false,
+            privacySettings: { 
+              showDistance: true, 
+              showLastSeen: true, 
+              allowMessages: true,
+              visibilityMode: 'online',
+              visibilityRadius: 5000,
+              blockedUsers: [],
+              showOnMap: true,
+            },
           },
         ];
 
@@ -355,6 +397,9 @@ export const useStore = create<AppState>((set, get) => ({
   setShowFilters: (show) => set({ showFilters: show }),
   setShowFullProfile: (show) => set({ showFullProfile: show }),
   setShowChatList: (show) => set({ showChatList: show }),
+  setShowAdmin: (show) => set({ showAdmin: show }),
+  setShowPrivacySettings: (show) => set({ showPrivacySettings: show }),
+  setShowNotifications: (show) => set({ showNotifications: show }),
 
   setFilters: (newFilters) => {
     const current = get().filters;
@@ -475,7 +520,7 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   likeUser: (userId) => {
-    const { currentUser, onlineUsers } = get();
+    const { currentUser, onlineUsers, allUsers } = get();
     if (!currentUser || userId === currentUser.id) return;
 
     const userRef = ref(db, `users/${userId}/likes`);
@@ -485,11 +530,22 @@ export const useStore = create<AppState>((set, get) => ({
         const newLikes = [...likes, currentUser.id];
         fbSet(userRef, newLikes);
         
+        // Отправляем уведомление о лайке владельцу профиля
+        const targetUser = allUsers.find(u => u.id === userId);
+        if (targetUser) {
+          // Уведомление для владельца профиля (если это не мы)
+          if (targetUser.id !== currentUser.id) {
+            // В реальном приложении здесь была бы отправка push-уведомления через Firebase Cloud Messaging
+            // Для демо просто логируем
+            console.log(`[Push] ${currentUser.name} лайкнул(а) ${targetUser.name}`);
+          }
+        }
+        
         // Проверяем взаимность
-        const targetUser = onlineUsers.find(u => u.id === userId);
         if (targetUser && targetUser.likes?.includes(currentUser.id)) {
           // Взаимный лайк!
           get().showToast(`💕 У вас взаимная симпатия с ${targetUser.name}!`);
+          notifyMatch(targetUser.name, targetUser.id);
         }
       }
     }, { onlyOnce: true });
@@ -898,7 +954,17 @@ export const useStore = create<AppState>((set, get) => ({
 
         const onlineUsers: User[] = allUsers
           .filter(u => u.id !== get().currentUser?.id)
-          .filter(u => Date.now() - u.lastSeen < 30 * 60 * 1000); // 30 минут
+          .filter(u => Date.now() - u.lastSeen < 30 * 60 * 1000) // 30 минут
+          .filter(u => {
+            // Учитываем режим приватности
+            const privacyMode = u.privacySettings?.visibilityMode || 'online';
+            // Показываем только тех, кто в режиме 'online' или 'ghost' (ghost виден только premium)
+            return privacyMode === 'online' || privacyMode === 'ghost';
+          })
+          .filter(u => {
+            // Учитываем showOnMap
+            return u.privacySettings?.showOnMap !== false;
+          });
 
         set({ 
           onlineUsers: onlineUsers, 
@@ -914,10 +980,23 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   listenForMessages: () => {
-    const { currentUser } = get();
+    const { currentUser, allUsers } = get();
     if (!currentUser) return;
 
+    // Загружаем сохраненные сообщения из localStorage
+    const savedMessages = localStorage.getItem(`nearme_messages_${currentUser.id}`);
+    if (savedMessages) {
+      try {
+        const parsed = JSON.parse(savedMessages);
+        set({ messages: parsed });
+      } catch (e) {
+        logError(e, 'load saved messages');
+      }
+    }
+
     const messagesRef = ref(db, 'messages');
+    let previousMessages: Message[] = [];
+
     onValue(messagesRef, (snapshot) => {
       try {
         const data = snapshot.val();
@@ -931,7 +1010,26 @@ export const useStore = create<AppState>((set, get) => ({
           .filter(m => m.fromId === currentUser.id || m.toId === currentUser.id)
           .sort((a, b) => a.timestamp - b.timestamp);
 
+        // Проверяем новые сообщения для push-уведомлений
+        const newMessages = allMessages.filter(m => 
+          !previousMessages.find(pm => pm.id === m.id) && 
+          m.toId === currentUser.id && 
+          !m.read
+        );
+
+        // Отправляем push-уведомления для новых сообщений
+        newMessages.forEach(msg => {
+          const sender = allUsers.find(u => u.id === msg.fromId);
+          if (sender) {
+            notifyNewMessage(sender.name, msg.text, sender.id);
+          }
+        });
+
+        previousMessages = allMessages;
         set({ messages: allMessages });
+
+        // Сохраняем сообщения в localStorage для оффлайн режима
+        localStorage.setItem(`nearme_messages_${currentUser.id}`, JSON.stringify(allMessages));
       } catch (error) {
         logError(error, 'listenForMessages');
       }

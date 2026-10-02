@@ -11,7 +11,11 @@ import DistrictView from './DistrictView';
 import ChatList from './ChatList';
 import Toast from './Toast';
 import ThemeToggle from './ThemeToggle';
+import AdminPanel from './AdminPanel';
+import PrivacySettings from './PrivacySettings';
+import NotificationsPanel from './NotificationsPanel';
 import { getDistance, formatDistance } from '../utils/helpers';
+import { getUnreadNotificationsCount } from '../utils/pushNotifications';
 
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -76,7 +80,7 @@ function createUserIcon(avatar: string, photoUrl: string, isMe: boolean = false,
 // }
 
 export default function MapScreen() {
-  const { currentUser, onlineUsers, totalUsers, setSelectedUser, setShowChat, showChat, showProfile, showFilters, setShowFilters, showFullProfile, setShowFullProfile, showDistricts, setShowDistricts, showChatList, setShowChatList, currentDistrict, filters, updateLocation, toastMessage, getUnreadCount } = useStore();
+  const { currentUser, onlineUsers, totalUsers, setSelectedUser, setShowChat, showChat, showProfile, showFilters, setShowFilters, showFullProfile, setShowFullProfile, showDistricts, setShowDistricts, showChatList, setShowChatList, showAdmin, setShowAdmin, showPrivacySettings, showNotifications, setShowNotifications, currentDistrict, filters, updateLocation, toastMessage, getUnreadCount } = useStore();
   const [centerLat, setCenterLat] = useState(currentUser?.lat || 55.751);
   const [centerLng, setCenterLng] = useState(currentUser?.lng || 37.618);
   const [showNearby, setShowNearby] = useState(false);
@@ -106,6 +110,38 @@ export default function MapScreen() {
 
   const handleCloseExpanded = () => {
     setExpandedMarker(null);
+  };
+
+  // Функция для расчета смещения маркеров чтобы они не слипались
+  const calculateMarkerOffset = (users: User[], index: number): { lat: number; lng: number } => {
+    const user = users[index];
+    let offsetLat = 0;
+    let offsetLng = 0;
+    
+    // Проверяем близость к другим пользователям
+    for (let i = 0; i < users.length; i++) {
+      if (i === index) continue;
+      
+      const otherUser = users[i];
+      const distance = getDistance(user.lat, user.lng, otherUser.lat, otherUser.lng);
+      
+      // Если расстояние меньше 50 метров, добавляем смещение
+      if (distance < 50) {
+        // Создаем смещение по кругу
+        const angle = (index * 137.5) % 360; // Золотой угол для равномерного распределения
+        const offsetDistance = 0.0002; // Примерно 20 метров
+        
+        offsetLat = Math.cos(angle * Math.PI / 180) * offsetDistance;
+        offsetLng = Math.sin(angle * Math.PI / 180) * offsetDistance;
+        
+        break;
+      }
+    }
+    
+    return {
+      lat: user.lat + offsetLat,
+      lng: user.lng + offsetLng,
+    };
   };
 
   const nearbyUsers = useMemo(() => {
@@ -182,12 +218,13 @@ export default function MapScreen() {
           </Popup>
         </Marker>
 
-        {onlineUsers.map(user => {
+        {onlineUsers.map((user, index) => {
           const isOnline = Date.now() - user.lastSeen < 5 * 60 * 1000;
+          const offset = calculateMarkerOffset(onlineUsers, index);
           return (
           <Marker
             key={user.id}
-            position={[user.lat, user.lng]}
+            position={[offset.lat, offset.lng]}
             icon={createUserIcon(user.avatar, user.photoUrl, false, isOnline)}
             eventHandlers={{
               click: () => handleUserClick(user),
@@ -260,11 +297,26 @@ export default function MapScreen() {
                 </span>
               )}
             </button>
+            <button onClick={() => setShowNotifications(true)} className="bg-yellow-100 dark:bg-yellow-900/30 px-3 py-1.5 rounded-full active:scale-95 transition-transform relative">
+              <i className="fas fa-bell text-yellow-600 dark:text-yellow-400 text-sm"></i>
+              {getUnreadNotificationsCount() > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                  {getUnreadNotificationsCount()}
+                </span>
+              )}
+            </button>
             <div className="bg-blue-100 dark:bg-blue-900/30 px-3 py-1 rounded-full">
               <span className="text-blue-700 dark:text-blue-400 font-bold text-sm">{totalUsers}</span>
               <span className="text-blue-500 dark:text-blue-400 text-xs ml-1">всего</span>
             </div>
             <ThemeToggle />
+            <button 
+              onClick={() => setShowAdmin(true)} 
+              className="bg-gray-100 dark:bg-gray-800 px-3 py-1.5 rounded-full active:scale-95 transition-transform"
+              title="Админ-панель"
+            >
+              <i className="fas fa-shield-alt text-gray-600 dark:text-gray-400 text-sm"></i>
+            </button>
           </div>
         </div>
       </div>
@@ -408,6 +460,9 @@ export default function MapScreen() {
       })()}
       
       {showChatList && <ChatList />}
+      {showAdmin && <AdminPanel />}
+      {showPrivacySettings && <PrivacySettings />}
+      {showNotifications && <NotificationsPanel />}
       <Toast />
     </div>
   );

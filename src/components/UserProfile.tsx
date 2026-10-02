@@ -1,12 +1,13 @@
 import React, { useState, useRef } from 'react';
 import { useStore } from '../store';
-import { getDistance, formatDistance } from '../utils/helpers';
+import { getDistance, formatDistance, getZodiacSign } from '../utils/helpers';
 
 export default function UserProfile() {
-  const { selectedUser, currentUser, setShowProfile, setShowChat, uploadAvatar, updateStatus, likeUser, unlikeUser, viewProfile } = useStore();
+  const { selectedUser, currentUser, setShowProfile, setShowChat, uploadAvatar, updateStatus, likeUser, unlikeUser, viewProfile, setShowFullProfile } = useStore();
   const [editingStatus, setEditingStatus] = useState(false);
   const [statusText, setStatusText] = useState(selectedUser?.status || '');
   const [liked, setLiked] = useState(false);
+  const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   React.useEffect(() => {
@@ -64,7 +65,7 @@ export default function UserProfile() {
         onClick={() => setShowProfile(false)}
       />
       
-      <div className="relative w-full bg-white rounded-t-3xl shadow-2xl animate-slide-up overflow-hidden max-h-[90vh] overflow-y-auto">
+      <div className="relative w-full bg-white dark:bg-gray-800 rounded-t-3xl shadow-2xl animate-slide-up overflow-hidden max-h-[90vh] overflow-y-auto">
         {/* Header with photo */}
         <div className="bg-gradient-to-br from-pink-500 via-purple-500 to-indigo-600 pt-8 pb-20 px-6 relative">
           <button
@@ -107,7 +108,12 @@ export default function UserProfile() {
             </div>
 
             {/* Name and age */}
-            <h2 className="text-2xl font-bold text-white mt-6">{selectedUser.name}, {selectedUser.age}</h2>
+            <h2 className="text-2xl font-bold text-white mt-6 flex items-center justify-center gap-2">
+              {selectedUser.name}, {selectedUser.age}
+              {selectedUser.verified && (
+                <i className="fas fa-check-circle text-blue-400"></i>
+              )}
+            </h2>
             
             {/* Status */}
             <div className="mt-2">
@@ -118,7 +124,7 @@ export default function UserProfile() {
                     value={statusText}
                     onChange={e => setStatusText(e.target.value)}
                     placeholder="Ваш статус..."
-                    className="bg-white/20 backdrop-blur text-white placeholder-white/60 px-3 py-1 rounded-full text-sm outline-none border border-white/30 w-48"
+                    className="bg-white/20 backdrop-blur text-white text-center text-sm px-3 py-1 rounded-full outline-none border border-white/30 w-48"
                     autoFocus
                     maxLength={50}
                   />
@@ -143,17 +149,31 @@ export default function UserProfile() {
 
         {/* Info */}
         <div className="px-6 -mt-8">
-          <div className="bg-white rounded-2xl shadow-lg p-4 space-y-4">
+          <div className="bg-white dark:bg-gray-700 rounded-2xl shadow-lg p-4 space-y-4">
             {/* Distance */}
-            <div className="flex items-center justify-center gap-2">
-              <i className="fas fa-location-dot text-purple-500"></i>
-              <span className="text-gray-600 dark:text-gray-300">{formatDistance(distance)} от тебя</span>
-            </div>
+            {selectedUser.privacySettings?.showDistance !== false && (
+              <div className="flex items-center justify-center gap-2">
+                <i className="fas fa-location-dot text-purple-500"></i>
+                <span className="text-gray-600 dark:text-gray-300">{formatDistance(distance)} от тебя</span>
+              </div>
+            )}
 
             {/* Bio */}
-            <div className="text-center">
-              <p className="text-gray-700 text-base">{selectedUser.bio}</p>
-            </div>
+            {selectedUser.bio && (
+              <div className="text-center">
+                <p className="text-gray-700 dark:text-gray-200 text-base">{selectedUser.bio}</p>
+              </div>
+            )}
+
+            {/* Looking for */}
+            {selectedUser.lookingFor && (
+              <div className="text-center">
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  <i className="fas fa-heart text-pink-500 mr-1"></i>
+                  {selectedUser.lookingFor}
+                </p>
+              </div>
+            )}
 
             {/* Stats */}
             <div className="flex justify-center gap-6 py-2">
@@ -161,7 +181,16 @@ export default function UserProfile() {
                 <div className="text-lg font-bold text-purple-600">{selectedUser.age}</div>
                 <div className="text-xs text-gray-500">возраст</div>
               </div>
-              <div className="w-px bg-gray-200"></div>
+              {selectedUser.height > 0 && (
+                <>
+                  <div className="w-px bg-gray-200 dark:bg-gray-600"></div>
+                  <div className="text-center">
+                    <div className="text-lg font-bold text-purple-600">{selectedUser.height} см</div>
+                    <div className="text-xs text-gray-500">рост</div>
+                  </div>
+                </>
+              )}
+              <div className="w-px bg-gray-200 dark:bg-gray-600"></div>
               <div className="text-center">
                 <div className="text-lg font-bold text-purple-600">
                   {distance < 500 ? '🔥' : '📍'}
@@ -174,25 +203,121 @@ export default function UserProfile() {
           </div>
         </div>
 
+        {/* Photo Gallery */}
+        {selectedUser.photos && selectedUser.photos.length > 0 && (
+          <div className="px-6 mt-4">
+            <h3 className="font-bold text-gray-800 dark:text-white mb-3">
+              <i className="fas fa-images text-purple-500 mr-2"></i>
+              Фотографии ({selectedUser.photos.length})
+            </h3>
+            <div className="grid grid-cols-3 gap-2">
+              {selectedUser.photos.map((photo, idx) => (
+                <div
+                  key={idx}
+                  onClick={() => setSelectedPhoto(photo)}
+                  className="aspect-square rounded-xl overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
+                >
+                  <img src={photo} alt="" className="w-full h-full object-cover" />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Interests */}
+        {selectedUser.interests && selectedUser.interests.length > 0 && (
+          <div className="px-6 mt-4">
+            <h3 className="font-bold text-gray-800 dark:text-white mb-3">
+              <i className="fas fa-heart text-pink-500 mr-2"></i>
+              Интересы
+            </h3>
+            <div className="flex flex-wrap gap-2">
+              {selectedUser.interests.map((interest, idx) => (
+                <span
+                  key={idx}
+                  className="px-3 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full text-sm"
+                >
+                  {interest}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Languages */}
+        {selectedUser.languages && selectedUser.languages.length > 0 && (
+          <div className="px-6 mt-4">
+            <h3 className="font-bold text-gray-800 dark:text-white mb-3">
+              <i className="fas fa-language text-blue-500 mr-2"></i>
+              Языки
+            </h3>
+            <div className="flex flex-wrap gap-2">
+              {selectedUser.languages.map((lang, idx) => (
+                <span
+                  key={idx}
+                  className="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-sm"
+                >
+                  {lang}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Additional Info */}
+        <div className="px-6 mt-4 pb-4">
+          <h3 className="font-bold text-gray-800 dark:text-white mb-3">
+            <i className="fas fa-info-circle text-purple-500 mr-2"></i>
+            Информация
+          </h3>
+          <div className="space-y-2">
+            {selectedUser.city && (
+              <div className="flex items-center gap-3 text-gray-600 dark:text-gray-300">
+                <i className="fas fa-map-marker-alt text-purple-400 w-5"></i>
+                <span>{selectedUser.city}</span>
+              </div>
+            )}
+            {selectedUser.birthDay && selectedUser.birthMonth && selectedUser.birthYear && (
+              <div className="flex items-center gap-3 text-gray-600 dark:text-gray-300">
+                <i className="fas fa-birthday-cake text-purple-400 w-5"></i>
+                <span>
+                  {selectedUser.birthDay}.{selectedUser.birthMonth.toString().padStart(2, '0')}.{selectedUser.birthYear}
+                  {` (${getZodiacSign(selectedUser.birthDay, selectedUser.birthMonth)})`}
+                </span>
+              </div>
+            )}
+            {selectedUser.activityTime && (
+              <div className="flex items-center gap-3 text-gray-600 dark:text-gray-300">
+                <i className="fas fa-clock text-purple-400 w-5"></i>
+                <span>{selectedUser.activityTime}</span>
+              </div>
+            )}
+            {selectedUser.level && (
+              <div className="flex items-center gap-3 text-gray-600 dark:text-gray-300">
+                <i className="fas fa-star text-purple-400 w-5"></i>
+                <span>Уровень {selectedUser.level}</span>
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Actions */}
         <div className="p-6 pt-4 pb-8 flex gap-3">
           {isMe ? (
-            <button
-              onClick={() => setShowProfile(false)}
-              className="flex-1 py-3.5 bg-gray-100 text-gray-700 font-semibold rounded-xl active:scale-95 transition-all"
-            >
-              <i className="fas fa-arrow-left mr-2"></i>
-              Назад
-            </button>
-          ) : (
             <>
               <button
-                onClick={() => setShowProfile(false)}
-                className="px-6 py-3.5 bg-gray-100 text-gray-700 font-semibold rounded-xl active:scale-95 transition-all"
+                onClick={() => {
+                  setShowProfile(false);
+                  setShowFullProfile(true);
+                }}
+                className="flex-1 py-3.5 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold rounded-xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
               >
-                <i className="fas fa-arrow-left mr-2"></i>
-                Назад
+                <i className="fas fa-edit"></i>
+                Редактировать
               </button>
+            </>
+          ) : (
+            <>
               <button
                 onClick={() => { setShowProfile(false); setShowChat(true); }}
                 className="flex-1 py-3.5 bg-gradient-to-r from-pink-500 to-purple-600 text-white font-semibold rounded-xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
@@ -202,7 +327,7 @@ export default function UserProfile() {
               </button>
               <button
                 onClick={handleLike}
-                className={`px-6 py-3.5 ${liked ? 'bg-pink-500 text-white' : 'bg-gray-100 text-gray-600'} font-semibold rounded-xl active:scale-95 transition-all`}
+                className={`px-6 py-3.5 ${liked ? 'bg-pink-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'} font-semibold rounded-xl active:scale-95 transition-all`}
               >
                 <i className={`fas fa-heart ${liked ? 'text-white' : 'text-pink-500'}`}></i>
               </button>
@@ -219,6 +344,27 @@ export default function UserProfile() {
           className="hidden"
         />
       </div>
+
+      {/* Photo Viewer Modal */}
+      {selectedPhoto && (
+        <div
+          className="fixed inset-0 z-[3000] bg-black/95 flex items-center justify-center"
+          onClick={() => setSelectedPhoto(null)}
+        >
+          <button
+            onClick={() => setSelectedPhoto(null)}
+            className="absolute top-4 right-4 w-12 h-12 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center"
+          >
+            <i className="fas fa-times text-white text-xl"></i>
+          </button>
+          <img
+            src={selectedPhoto}
+            alt=""
+            className="max-w-full max-h-full object-contain"
+            onClick={e => e.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   );
 }

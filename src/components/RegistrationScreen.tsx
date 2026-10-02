@@ -69,10 +69,15 @@ export default function RegistrationScreen() {
         level: 1,
         xp: 0,
         achievements: [],
+        isPremium: false,
         privacySettings: {
           showDistance: true,
           showLastSeen: true,
           allowMessages: true,
+          visibilityMode: 'online',
+          visibilityRadius: 5000,
+          blockedUsers: [],
+          showOnMap: true,
         },
       });
     }

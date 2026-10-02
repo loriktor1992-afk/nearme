@@ -35,6 +35,10 @@ export default function FullProfile() {
     showDistance: true,
     showLastSeen: true,
     allowMessages: true,
+    visibilityMode: 'online' as const,
+    visibilityRadius: 5000,
+    blockedUsers: [],
+    showOnMap: true,
   });
 
   if (!currentUser) return null;
@@ -672,6 +676,18 @@ export default function FullProfile() {
                   <div className={`w-5 h-5 bg-white rounded-full transition-transform ${privacySettings.allowMessages ? 'translate-x-6' : 'translate-x-0.5'}`}></div>
                 </button>
               </div>
+              
+              {/* Кнопка расширенных настроек */}
+              <button
+                onClick={() => {
+                  const { setShowPrivacySettings } = useStore.getState();
+                  setShowPrivacySettings(true);
+                }}
+                className="w-full py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-semibold flex items-center justify-center gap-2"
+              >
+                <i className="fas fa-cog"></i>
+                Расширенные настройки приватности
+              </button>
             </div>
           </div>
         )}
