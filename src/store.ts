@@ -86,8 +86,8 @@ export interface DistrictInvite {
 
 export interface Filters {
   gender: 'all' | 'male' | 'female';
-  ageMin: number;
-  ageMax: number;
+  ageMin: number | null;
+  ageMax: number | null;
   distanceMax: number;
 }
 
@@ -202,7 +202,7 @@ export const useStore = create<AppState>((set, get) => ({
   showNotifications: false,
   typingUsers: {},
   toastMessage: null,
-  filters: { gender: 'all', ageMin: 14, ageMax: 99, distanceMax: 50 },
+  filters: { gender: 'all', ageMin: null, ageMax: null, distanceMax: 50 },
   theme: (localStorage.getItem('nearme_theme') as 'light' | 'dark') || 'light',
   
   register: (userData) => {    const userId = generateUserId();
@@ -429,7 +429,7 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   resetFilters: () => {
-    set({ filters: { gender: 'all', ageMin: 14, ageMax: 99, distanceMax: 50 } });
+    set({ filters: { gender: 'all', ageMin: null, ageMax: null, distanceMax: 50 } });
   },
 
   uploadAvatar: async (file: File) => {

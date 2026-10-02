@@ -1,8 +1,44 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useStore } from '../store';
 
 export default function FiltersPanel() {
   const { filters, setFilters, resetFilters, setShowFilters } = useStore();
+  
+  // Локальное состояние для полей ввода
+  const [localAgeMin, setLocalAgeMin] = useState<string>(filters.ageMin?.toString() || '');
+  const [localAgeMax, setLocalAgeMax] = useState<string>(filters.ageMax?.toString() || '');
+
+  // Синхронизация с глобальным состоянием
+  useEffect(() => {
+    setLocalAgeMin(filters.ageMin?.toString() || '');
+    setLocalAgeMax(filters.ageMax?.toString() || '');
+  }, [filters.ageMin, filters.ageMax]);
+
+  const handleAgeMinChange = (value: string) => {
+    setLocalAgeMin(value);
+    
+    if (value === '') {
+      setFilters({ ageMin: null });
+    } else {
+      const num = parseInt(value);
+      if (!isNaN(num) && num >= 14 && num <= 99) {
+        setFilters({ ageMin: num });
+      }
+    }
+  };
+
+  const handleAgeMaxChange = (value: string) => {
+    setLocalAgeMax(value);
+    
+    if (value === '') {
+      setFilters({ ageMax: null });
+    } else {
+      const num = parseInt(value);
+      if (!isNaN(num) && num >= 14 && num <= 99) {
+        setFilters({ ageMax: num });
+      }
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-[3000] flex items-end">
@@ -79,14 +115,10 @@ export default function FiltersPanel() {
                   type="number"
                   min="14"
                   max="99"
-                  value={filters.ageMin}
-                  onChange={e => {
-                    const val = parseInt(e.target.value);
-                    if (!isNaN(val) && val >= 14 && val <= 99) {
-                      setFilters({ ageMin: val });
-                    }
-                  }}
-                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-purple-500 outline-none text-center text-lg font-semibold text-gray-800"
+                  value={localAgeMin}
+                  onChange={e => handleAgeMinChange(e.target.value)}
+                  placeholder="14"
+                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-purple-500 outline-none text-center text-lg font-semibold text-gray-800 placeholder-gray-400"
                 />
               </div>
               <div className="text-2xl text-gray-400 pt-6">—</div>
@@ -96,14 +128,10 @@ export default function FiltersPanel() {
                   type="number"
                   min="14"
                   max="99"
-                  value={filters.ageMax}
-                  onChange={e => {
-                    const val = parseInt(e.target.value);
-                    if (!isNaN(val) && val >= 14 && val <= 99) {
-                      setFilters({ ageMax: val });
-                    }
-                  }}
-                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-purple-500 outline-none text-center text-lg font-semibold text-gray-800"
+                  value={localAgeMax}
+                  onChange={e => handleAgeMaxChange(e.target.value)}
+                  placeholder="99"
+                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-purple-500 outline-none text-center text-lg font-semibold text-gray-800 placeholder-gray-400"
                 />
               </div>
             </div>

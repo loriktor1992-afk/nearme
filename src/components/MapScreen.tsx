@@ -162,7 +162,8 @@ export default function MapScreen() {
         if (filters.gender !== 'all' && u.gender !== filters.gender) return false;
         
         // Age filter
-        if (u.age < filters.ageMin || u.age > filters.ageMax) return false;
+        if (filters.ageMin !== null && u.age < filters.ageMin) return false;
+        if (filters.ageMax !== null && u.age > filters.ageMax) return false;
         
         return true;
       })
