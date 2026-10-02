@@ -70,7 +70,7 @@ export default function FiltersPanel() {
           <div>
             <label className="block font-bold text-gray-800 mb-3">
               <i className="fas fa-birthday-cake text-purple-500 mr-2"></i>
-              Возраст: {filters.ageMin} — {filters.ageMax} лет
+              Возраст
             </label>
             <div className="flex gap-3 items-center">
               <div className="flex-1">

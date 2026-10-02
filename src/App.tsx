@@ -26,6 +26,25 @@ export default function App() {
       localStorage.setItem('nearme_admin', 'true');
       console.log('🎉 Администратор обнаружен: @' + telegramUser.username);
     }
+    
+    // Сохраняем Telegram chat_id для push-уведомлений
+    if (telegramUser?.id) {
+      const currentUser = useStore.getState().currentUser;
+      if (currentUser && !currentUser.telegramChatId) {
+        // Сохраняем chat_id в Firebase
+        const { ref, set } = require('firebase/database');
+        const { db } = require('./firebase');
+        const userRef = ref(db, `users/${currentUser.id}/telegramChatId`);
+        set(userRef, telegramUser.id.toString());
+        
+        // Обновляем локальное состояние
+        useStore.setState({
+          currentUser: { ...currentUser, telegramChatId: telegramUser.id.toString() }
+        });
+        
+        console.log('📱 Telegram chat_id сохранен:', telegramUser.id);
+      }
+    }
   }, []);
 
   return (

@@ -39,6 +39,7 @@ export interface User {
   xp: number; // опыт
   achievements: string[]; // достижения
   isPremium: boolean; // премиум статус
+  telegramChatId?: string; // Telegram chat_id для push-уведомлений
   privacySettings: {
     showDistance: boolean;
     showLastSeen: boolean;
