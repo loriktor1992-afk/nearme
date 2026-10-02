@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useStore } from '../store';
 import { getDistance, formatDistance, getZodiacSign } from '../utils/helpers';
+import PhotoViewer from './PhotoViewer';
 
 export default function UserProfile() {
   const { selectedUser, currentUser, setShowProfile, setShowChat, uploadAvatar, updateStatus, likeUser, unlikeUser, viewProfile, setShowFullProfile } = useStore();
@@ -8,6 +9,7 @@ export default function UserProfile() {
   const [statusText, setStatusText] = useState(selectedUser?.status || '');
   const [liked, setLiked] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+  const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number>(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   React.useEffect(() => {
@@ -214,7 +216,10 @@ export default function UserProfile() {
               {selectedUser.photos.map((photo, idx) => (
                 <div
                   key={idx}
-                  onClick={() => setSelectedPhoto(photo)}
+                  onClick={() => {
+                    setSelectedPhoto(photo);
+                    setSelectedPhotoIndex(idx);
+                  }}
                   className="aspect-square rounded-xl overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
                 >
                   <img src={photo} alt="" className="w-full h-full object-cover" />
@@ -346,24 +351,13 @@ export default function UserProfile() {
       </div>
 
       {/* Photo Viewer Modal */}
-      {selectedPhoto && (
-        <div
-          className="fixed inset-0 z-[3000] bg-black/95 flex items-center justify-center"
-          onClick={() => setSelectedPhoto(null)}
-        >
-          <button
-            onClick={() => setSelectedPhoto(null)}
-            className="absolute top-4 right-4 w-12 h-12 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center"
-          >
-            <i className="fas fa-times text-white text-xl"></i>
-          </button>
-          <img
-            src={selectedPhoto}
-            alt=""
-            className="max-w-full max-h-full object-contain"
-            onClick={e => e.stopPropagation()}
-          />
-        </div>
+      {selectedPhoto && selectedUser.photos && (
+        <PhotoViewer
+          photos={selectedUser.photos}
+          initialIndex={selectedPhotoIndex}
+          onClose={() => setSelectedPhoto(null)}
+          isOwner={isMe}
+        />
       )}
     </div>
   );

@@ -1022,8 +1022,10 @@ export const useStore = create<AppState>((set, get) => ({
     onValue(messagesRef, (snapshot) => {
       try {
         const data = snapshot.val();
+        
+        // Если данных нет в Firebase, не очищаем localStorage
         if (!data) {
-          set({ messages: [] });
+          // Оставляем сообщения из localStorage
           return;
         }
 

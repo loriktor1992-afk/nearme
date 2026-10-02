@@ -55,27 +55,19 @@ export default function ChatList() {
 
   // Получаем информацию о собеседнике (даже если он оффлайн)
   const getPartnerInfo = (partnerId: string) => {
+    // Сначала ищем в allUsers
     const user = allUsers.find(u => u.id === partnerId);
     if (user) return user;
     
-    // Если пользователя нет в allUsers, получаем данные из последнего сообщения
-    const lastMessage = messages.find(m => 
-      (m.fromId === partnerId && m.toId === currentUser.id) ||
-      (m.fromId === currentUser.id && m.toId === partnerId)
-    );
-    
-    if (lastMessage) {
-      return {
-        id: partnerId,
-        name: lastMessage.fromId === partnerId ? 'Пользователь' : 'Пользователь',
-        avatar: '👤',
-        photoUrl: '',
-        isOnline: false,
-        lastSeen: 0,
-      };
-    }
-    
-    return null;
+    // Если не нашли, создаем базовую информацию
+    return {
+      id: partnerId,
+      name: 'Пользователь',
+      avatar: '👤',
+      photoUrl: '',
+      isOnline: false,
+      lastSeen: 0,
+    };
   };
 
   return (

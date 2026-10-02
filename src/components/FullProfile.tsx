@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useStore } from '../store';
 import { getZodiacSign, calculateAge } from '../utils/helpers';
+import PhotoViewer from './PhotoViewer';
 
 export default function FullProfile() {
   const { currentUser, setShowFullProfile, uploadAvatar, uploadPhoto, deletePhoto, updateProfile } = useStore();
@@ -709,47 +710,12 @@ export default function FullProfile() {
       />
 
       {/* Photo Viewer Modal */}
-      {selectedPhoto && (
-        <div 
-          className="fixed inset-0 z-[3000] bg-black/95 flex items-center justify-center"
-          onClick={() => setSelectedPhoto(null)}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-        >
-          <button
-            onClick={() => setSelectedPhoto(null)}
-            className="absolute top-4 right-4 w-12 h-12 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center transition-colors z-10"
-          >
-            <i className="fas fa-times text-white text-xl"></i>
-          </button>
-          
-          <div className="relative max-w-4xl max-h-[90vh] p-4" onClick={e => e.stopPropagation()}>
-            <img 
-              src={selectedPhoto} 
-              alt="" 
-              className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl"
-            />
-            
-            {/* Photo counter */}
-            {currentUser.photos && currentUser.photos.length > 1 && (
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/50 backdrop-blur px-4 py-2 rounded-full">
-                <span className="text-white text-sm">
-                  {selectedPhotoIndex + 1} / {currentUser.photos.length}
-                </span>
-              </div>
-            )}
-            
-            {/* Swipe hint */}
-            {currentUser.photos && currentUser.photos.length > 1 && (
-              <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/50 backdrop-blur px-4 py-2 rounded-full">
-                <span className="text-white text-xs">
-                  ← Свайп для навигации →
-                </span>
-              </div>
-            )}
-          </div>
-        </div>
+      {selectedPhoto && currentUser.photos && (
+        <PhotoViewer
+          photos={currentUser.photos}
+          initialIndex={selectedPhotoIndex}
+          onClose={() => setSelectedPhoto(null)}
+        />
       )}
     </div>
   );
