@@ -81,9 +81,19 @@ export default function FiltersPanel() {
                   max="99"
                   value={filters.ageMin}
                   onChange={e => {
+                    const val = e.target.value === '' ? 14 : parseInt(e.target.value);
+                    if (!isNaN(val) && val >= 14 && val <= 99) {
+                      if (val < filters.ageMax) {
+                        setFilters({ ageMin: val });
+                      } else {
+                        setFilters({ ageMin: filters.ageMax - 1 });
+                      }
+                    }
+                  }}
+                  onBlur={e => {
                     const val = parseInt(e.target.value);
-                    if (val >= 14 && val <= 99 && val < filters.ageMax) {
-                      setFilters({ ageMin: val });
+                    if (isNaN(val) || val < 14) {
+                      setFilters({ ageMin: 14 });
                     }
                   }}
                   className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-purple-500 outline-none text-center text-lg font-semibold"
@@ -99,9 +109,19 @@ export default function FiltersPanel() {
                   max="99"
                   value={filters.ageMax}
                   onChange={e => {
+                    const val = e.target.value === '' ? 99 : parseInt(e.target.value);
+                    if (!isNaN(val) && val >= 14 && val <= 99) {
+                      if (val > filters.ageMin) {
+                        setFilters({ ageMax: val });
+                      } else {
+                        setFilters({ ageMax: filters.ageMin + 1 });
+                      }
+                    }
+                  }}
+                  onBlur={e => {
                     const val = parseInt(e.target.value);
-                    if (val >= 14 && val <= 99 && val > filters.ageMin) {
-                      setFilters({ ageMax: val });
+                    if (isNaN(val) || val > 99) {
+                      setFilters({ ageMax: 99 });
                     }
                   }}
                   className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-purple-500 outline-none text-center text-lg font-semibold"

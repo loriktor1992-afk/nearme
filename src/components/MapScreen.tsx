@@ -70,19 +70,22 @@ function createUserIcon(avatar: string, photoUrl: string, isMe: boolean = false,
   });
 }
 
-// Убираем авто-возврат карты
-// function MapController({ lat, lng }: { lat: number; lng: number }) {
-//   const map = useMap();
-//   useEffect(() => {
-//     map.setView([lat, lng], 15);
-//   }, [map, lat, lng]);
-//   return null;
-// }
+// Компонент для управления картой
+function MapController({ lat, lng, zoom = 15 }: { lat: number; lng: number; zoom?: number }) {
+  const map = useMap();
+  useEffect(() => {
+    if (lat && lng) {
+      map.setView([lat, lng], zoom);
+    }
+  }, [map, lat, lng, zoom]);
+  return null;
+}
 
 export default function MapScreen() {
   const { currentUser, onlineUsers, totalUsers, setSelectedUser, setShowChat, showChat, showProfile, showFilters, setShowFilters, showFullProfile, setShowFullProfile, showDistricts, setShowDistricts, showChatList, setShowChatList, showAdmin, setShowAdmin, showPrivacySettings, showNotifications, setShowNotifications, currentDistrict, filters, updateLocation, toastMessage, getUnreadCount } = useStore();
   const [centerLat, setCenterLat] = useState(currentUser?.lat || 55.751);
   const [centerLng, setCenterLng] = useState(currentUser?.lng || 37.618);
+  const [mapZoom, setMapZoom] = useState(15);
   const [showNearby, setShowNearby] = useState(false);
   const [expandedMarker, setExpandedMarker] = useState<string | null>(null);
 
@@ -178,13 +181,26 @@ export default function MapScreen() {
           updateLocation(latitude, longitude);
           setCenterLat(latitude);
           setCenterLng(longitude);
+          setMapZoom(16); // Приближаем карту
         },
         (error) => {
           console.error('GPS error:', error);
-          alert('Не удалось получить местоположение');
+          // Если GPS не работает, используем координаты пользователя
+          if (currentUser) {
+            setCenterLat(currentUser.lat);
+            setCenterLng(currentUser.lng);
+            setMapZoom(16);
+          } else {
+            alert('Не удалось получить местоположение');
+          }
         },
         { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
       );
+    } else if (currentUser) {
+      // Если геолокация не поддерживается, используем координаты пользователя
+      setCenterLat(currentUser.lat);
+      setCenterLng(currentUser.lng);
+      setMapZoom(16);
     }
   };
 
@@ -206,6 +222,7 @@ export default function MapScreen() {
           attribution=''
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
+        <MapController lat={centerLat} lng={centerLng} zoom={mapZoom} />
         
         <Marker
           position={[currentUser.lat, currentUser.lng]}

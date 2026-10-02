@@ -17,6 +17,17 @@ export default function App() {
     }
   }, [theme]);
 
+  // Проверка прав администратора при загрузке
+  useEffect(() => {
+    const telegramUser = (window as any).Telegram?.WebApp?.initDataUnsafe?.user;
+    const adminUsernames = ['loriktor', 'loriktor1992'];
+    
+    if (telegramUser && adminUsernames.includes(telegramUser.username?.toLowerCase())) {
+      localStorage.setItem('nearme_admin', 'true');
+      console.log('🎉 Администратор обнаружен: @' + telegramUser.username);
+    }
+  }, []);
+
   return (
     <ErrorBoundary>
       <div className="w-full h-full overflow-hidden">
