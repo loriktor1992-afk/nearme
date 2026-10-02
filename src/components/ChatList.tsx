@@ -53,6 +53,31 @@ export default function ChatList() {
     return chats;
   }, [chatPartners, searchQuery, allUsers]);
 
+  // Получаем информацию о собеседнике (даже если он оффлайн)
+  const getPartnerInfo = (partnerId: string) => {
+    const user = allUsers.find(u => u.id === partnerId);
+    if (user) return user;
+    
+    // Если пользователя нет в allUsers, получаем данные из последнего сообщения
+    const lastMessage = messages.find(m => 
+      (m.fromId === partnerId && m.toId === currentUser.id) ||
+      (m.fromId === currentUser.id && m.toId === partnerId)
+    );
+    
+    if (lastMessage) {
+      return {
+        id: partnerId,
+        name: lastMessage.fromId === partnerId ? 'Пользователь' : 'Пользователь',
+        avatar: '👤',
+        photoUrl: '',
+        isOnline: false,
+        lastSeen: 0,
+      };
+    }
+    
+    return null;
+  };
+
   return (
     <div className="fixed inset-0 z-[2500] bg-gray-50 dark:bg-gray-900 overflow-y-auto">
       {/* Header */}
@@ -92,14 +117,16 @@ export default function ChatList() {
         ) : (
           <div className="space-y-2">
             {sortedChats.map(([partnerId, chat]) => {
-              const partner = allUsers.find(u => u.id === partnerId);
+              const partner = getPartnerInfo(partnerId);
               if (!partner) return null;
+
+              const isOnline = Date.now() - (partner.lastSeen || 0) < 5 * 60 * 1000;
 
               return (
                 <div
                   key={partnerId}
                   onClick={() => {
-                    setSelectedUser(partner);
+                    setSelectedUser(partner as any);
                     setShowChat(true);
                   }}
                   className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm cursor-pointer active:scale-98 transition-transform flex items-center gap-3"
@@ -112,7 +139,9 @@ export default function ChatList() {
                         {partner.avatar}
                       </div>
                     )}
-                    <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-white dark:border-gray-800"></div>
+                    <div className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-white dark:border-gray-800 ${
+                      isOnline ? 'bg-green-500' : 'bg-gray-400'
+                    }`}></div>
                   </div>
 
                   <div className="flex-1 min-w-0">

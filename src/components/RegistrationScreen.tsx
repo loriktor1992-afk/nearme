@@ -189,9 +189,18 @@ export default function RegistrationScreen() {
 
           <button
             onClick={handleNext}
-            className="w-full mt-5 py-3.5 bg-gradient-to-r from-pink-500 to-purple-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl active:scale-95 transition-all text-lg"
+            className="w-full mt-5 py-3.5 bg-gradient-to-r from-pink-500 to-purple-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl active:scale-95 transition-all text-lg flex items-center justify-center gap-2"
           >
-            {step === 4 ? '🚀 Начать знакомства' : 'Далее →'}
+            {step === 1 ? (
+              <>
+                <i className="fas fa-map-marked-alt"></i>
+                <span>НА КАРТУ</span>
+              </>
+            ) : step === 4 ? (
+              '🚀 Начать знакомства'
+            ) : (
+              'Далее →'
+            )}
           </button>
           
           {step > 1 && (

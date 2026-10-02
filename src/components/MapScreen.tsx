@@ -334,26 +334,23 @@ export default function MapScreen() {
         >
           <i className="fas fa-sliders text-purple-600 text-lg"></i>
         </button>
+      </div>
+
+      <div className="absolute bottom-24 right-4 z-[1000] flex flex-col gap-2">
         <button
-          onClick={() => {
-            if (currentUser) {
-              setCenterLat(currentUser.lat);
-              setCenterLng(currentUser.lng);
-            }
-          }}
+          onClick={handleGoToMyLocation}
+          className="bg-white shadow-lg rounded-full p-3 active:scale-95 transition-transform"
+        >
+          <i className="fas fa-crosshairs text-purple-600 text-lg"></i>
+        </button>
+        <button
+          onClick={handleGoToMyLocation}
           className="bg-gradient-to-r from-purple-500 to-pink-500 shadow-lg rounded-xl px-4 py-3 active:scale-95 transition-transform flex items-center gap-2"
         >
           <i className="fas fa-map-marked-alt text-white"></i>
           <span className="text-white font-bold text-sm">НА КАРТУ</span>
         </button>
       </div>
-
-      <button
-        onClick={handleGoToMyLocation}
-        className="absolute bottom-24 right-4 z-[1000] bg-white shadow-lg rounded-full p-3 active:scale-95 transition-transform"
-      >
-        <i className="fas fa-crosshairs text-purple-600 text-lg"></i>
-      </button>
 
       {showNearby && (
         <div className="absolute bottom-0 left-0 right-0 z-[1000] bg-white rounded-t-3xl shadow-2xl max-h-[60vh] overflow-hidden">

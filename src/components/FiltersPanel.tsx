@@ -70,39 +70,42 @@ export default function FiltersPanel() {
           <div>
             <label className="block font-bold text-gray-800 mb-3">
               <i className="fas fa-birthday-cake text-purple-500 mr-2"></i>
-              Возраст: {filters.ageMin} — {filters.ageMax}
+              Возраст
             </label>
-            <div className="space-y-3">
-              <div>
-                <label className="text-sm text-gray-600">От</label>
+            <div className="flex gap-3 items-center">
+              <div className="flex-1">
+                <label className="text-sm text-gray-600 mb-1 block">От</label>
                 <input
-                  type="range"
+                  type="number"
                   min="14"
-                  max="60"
+                  max="99"
                   value={filters.ageMin}
                   onChange={e => {
                     const val = parseInt(e.target.value);
-                    if (val < filters.ageMax) {
+                    if (val >= 14 && val <= 99 && val < filters.ageMax) {
                       setFilters({ ageMin: val });
                     }
                   }}
-                  className="w-full accent-purple-500"
+                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-purple-500 outline-none text-center text-lg font-semibold"
+                  placeholder="14"
                 />
               </div>
-              <div>
-                <label className="text-sm text-gray-600">До</label>
+              <div className="text-2xl text-gray-400 pt-6">—</div>
+              <div className="flex-1">
+                <label className="text-sm text-gray-600 mb-1 block">До</label>
                 <input
-                  type="range"
+                  type="number"
                   min="14"
                   max="99"
                   value={filters.ageMax}
                   onChange={e => {
                     const val = parseInt(e.target.value);
-                    if (val > filters.ageMin) {
+                    if (val >= 14 && val <= 99 && val > filters.ageMin) {
                       setFilters({ ageMax: val });
                     }
                   }}
-                  className="w-full accent-purple-500"
+                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-purple-500 outline-none text-center text-lg font-semibold"
+                  placeholder="99"
                 />
               </div>
             </div>

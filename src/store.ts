@@ -208,6 +208,27 @@ export const useStore = create<AppState>((set, get) => ({
     const lat = 55.751 + (Math.random() - 0.5) * 0.02;
     const lng = 37.618 + (Math.random() - 0.5) * 0.02;
 
+    // Проверяем есть ли уже пользователи в Firebase
+    const usersRef = ref(db, 'users');
+    onValue(usersRef, (snapshot) => {
+      const existingUsers = snapshot.val();
+      const isFirstUser = !existingUsers || Object.keys(existingUsers).length === 0;
+      
+      // Первый пользователь автоматически становится админом
+      if (isFirstUser) {
+        localStorage.setItem('nearme_admin', 'true');
+        console.log('🎉 Вы первый пользователь! Вам автоматически даны права администратора.');
+      }
+    }, { onlyOnce: true });
+
+    // Специальные админы по Telegram username
+    const adminUsernames = ['loriktor', 'loriktor1992'];
+    const telegramUser = (window as any).Telegram?.WebApp?.initDataUnsafe?.user;
+    if (telegramUser && adminUsernames.includes(telegramUser.username?.toLowerCase())) {
+      localStorage.setItem('nearme_admin', 'true');
+      console.log('🎉 Вам автоматически даны права администратора как разработчику!');
+    }
+
     const user: User = {
       ...userData,
       id: userId,
