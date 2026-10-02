@@ -335,10 +335,16 @@ export default function MapScreen() {
           <i className="fas fa-sliders text-purple-600 text-lg"></i>
         </button>
         <button
-          onClick={() => setShowDistricts(true)}
-          className="bg-white shadow-lg rounded-full p-3 active:scale-95 transition-transform"
+          onClick={() => {
+            if (currentUser) {
+              setCenterLat(currentUser.lat);
+              setCenterLng(currentUser.lng);
+            }
+          }}
+          className="bg-gradient-to-r from-purple-500 to-pink-500 shadow-lg rounded-xl px-4 py-3 active:scale-95 transition-transform flex items-center gap-2"
         >
-          <i className="fas fa-map-marked-alt text-purple-600 text-lg"></i>
+          <i className="fas fa-map-marked-alt text-white"></i>
+          <span className="text-white font-bold text-sm">НА КАРТУ</span>
         </button>
       </div>
 
