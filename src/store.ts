@@ -55,6 +55,9 @@ export interface Message {
   id: string;
   fromId: string;
   toId: string;
+  fromName?: string; // Имя отправителя для отображения когда пользователь оффлайн
+  fromAvatar?: string; // Аватар отправителя
+  fromPhotoUrl?: string; // Фото отправителя
   text: string;
   timestamp: number;
   read: boolean;
@@ -863,9 +866,13 @@ export const useStore = create<AppState>((set, get) => ({
     const messagesRef = ref(db, 'messages');
     const newMessageRef = push(messagesRef);
     
+    // Сохраняем информацию об отправителе в сообщении
     fbSet(newMessageRef, {
       fromId: currentUser.id,
       toId: selectedUser.id,
+      fromName: currentUser.name,
+      fromAvatar: currentUser.avatar,
+      fromPhotoUrl: currentUser.photoUrl || '',
       text,
       timestamp: Date.now(),
       read: false,
@@ -1007,17 +1014,20 @@ export const useStore = create<AppState>((set, get) => ({
 
     // Загружаем сохраненные сообщения из localStorage
     const savedMessages = localStorage.getItem(`nearme_messages_${currentUser.id}`);
+    let initialMessages: Message[] = [];
     if (savedMessages) {
       try {
-        const parsed = JSON.parse(savedMessages);
-        set({ messages: parsed });
+        initialMessages = JSON.parse(savedMessages);
+        set({ messages: initialMessages });
       } catch (e) {
         logError(e, 'load saved messages');
       }
     }
 
     const messagesRef = ref(db, 'messages');
-    let previousMessages: Message[] = [];
+    // Инициализируем previousMessages из localStorage чтобы не было спама уведомлений
+    let previousMessages: Message[] = initialMessages;
+    let isFirstLoad = true;
 
     onValue(messagesRef, (snapshot) => {
       try {
@@ -1025,7 +1035,6 @@ export const useStore = create<AppState>((set, get) => ({
         
         // Если данных нет в Firebase, не очищаем localStorage
         if (!data) {
-          // Оставляем сообщения из localStorage
           return;
         }
 
@@ -1034,21 +1043,26 @@ export const useStore = create<AppState>((set, get) => ({
           .filter(m => m.fromId === currentUser.id || m.toId === currentUser.id)
           .sort((a, b) => a.timestamp - b.timestamp);
 
-        // Проверяем новые сообщения для push-уведомлений
-        const newMessages = allMessages.filter(m => 
-          !previousMessages.find(pm => pm.id === m.id) && 
-          m.toId === currentUser.id && 
-          !m.read
-        );
+        // Проверяем новые сообщения для push-уведомлений (только после первой загрузки)
+        if (!isFirstLoad) {
+          const newMessages = allMessages.filter(m => 
+            !previousMessages.find(pm => pm.id === m.id) && 
+            m.toId === currentUser.id && 
+            !m.read
+          );
 
-        // Отправляем push-уведомления для новых сообщений
-        newMessages.forEach(msg => {
-          const sender = allUsers.find(u => u.id === msg.fromId);
-          if (sender) {
-            notifyNewMessage(sender.name, msg.text, sender.id);
+          // Отправляем push-уведомления только для действительно новых сообщений
+          if (newMessages.length > 0) {
+            newMessages.forEach(msg => {
+              const sender = allUsers.find(u => u.id === msg.fromId);
+              if (sender) {
+                notifyNewMessage(sender.name, msg.text, sender.id);
+              }
+            });
           }
-        });
+        }
 
+        isFirstLoad = false;
         previousMessages = allMessages;
         set({ messages: allMessages });
 

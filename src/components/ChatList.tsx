@@ -59,7 +59,26 @@ export default function ChatList() {
     const user = allUsers.find(u => u.id === partnerId);
     if (user) return user;
     
-    // Если не нашли, создаем базовую информацию
+    // Если не нашли в allUsers, получаем информацию из последнего сообщения
+    const lastMessage = messages.find(m => 
+      (m.fromId === partnerId && m.toId === currentUser.id) ||
+      (m.fromId === currentUser.id && m.toId === partnerId)
+    );
+    
+    if (lastMessage) {
+      // Используем информацию из сообщения
+      const isFromPartner = lastMessage.fromId === partnerId;
+      return {
+        id: partnerId,
+        name: isFromPartner ? (lastMessage.fromName || 'Пользователь') : (currentUser.name || 'Вы'),
+        avatar: isFromPartner ? (lastMessage.fromAvatar || '👤') : (currentUser.avatar || '👤'),
+        photoUrl: isFromPartner ? (lastMessage.fromPhotoUrl || '') : (currentUser.photoUrl || ''),
+        isOnline: false,
+        lastSeen: 0,
+      };
+    }
+    
+    // Если вообще ничего не нашли, возвращаем базовую информацию
     return {
       id: partnerId,
       name: 'Пользователь',

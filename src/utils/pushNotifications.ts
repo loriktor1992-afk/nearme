@@ -19,6 +19,19 @@ export interface PushNotification {
 export const sendPushNotification = (notification: PushNotification) => {
   // Сохраняем уведомление в localStorage
   const notifications = getNotifications();
+  
+  // Проверяем есть ли уже такое уведомление (чтобы не дублировать)
+  const existingNotification = notifications.find(n => 
+    n.id === notification.id || 
+    (n.fromUserId === notification.fromUserId && 
+     n.type === notification.type && 
+     Date.now() - n.timestamp < 5000) // Не дублировать уведомления в течение 5 секунд
+  );
+  
+  if (existingNotification) {
+    return; // Уже есть такое уведомление
+  }
+  
   notifications.unshift(notification);
   
   // Оставляем только последние 50 уведомлений
@@ -46,8 +59,10 @@ export const sendPushNotification = (notification: PushNotification) => {
         ]
       });
     } else if (notification.type === 'message') {
-      // Для сообщений показываем alert
-      tg.showAlert?.(`${notification.title}\n${notification.message}`);
+      // Для сообщений показываем alert только если приложение активно
+      if (tg.isVisible) {
+        tg.showAlert?.(`${notification.title}\n${notification.message}`);
+      }
     }
   }
   
