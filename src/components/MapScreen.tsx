@@ -121,24 +121,26 @@ export default function MapScreen() {
     let offsetLat = 0;
     let offsetLng = 0;
     
-    // Проверяем близость к другим пользователям
+    // Считаем сколько пользователей находятся очень близко (менее 100 метров)
+    let nearbyCount = 0;
     for (let i = 0; i < users.length; i++) {
       if (i === index) continue;
       
       const otherUser = users[i];
       const distance = getDistance(user.lat, user.lng, otherUser.lat, otherUser.lng);
       
-      // Если расстояние меньше 50 метров, добавляем смещение
-      if (distance < 50) {
-        // Создаем смещение по кругу
-        const angle = (index * 137.5) % 360; // Золотой угол для равномерного распределения
-        const offsetDistance = 0.0002; // Примерно 20 метров
-        
-        offsetLat = Math.cos(angle * Math.PI / 180) * offsetDistance;
-        offsetLng = Math.sin(angle * Math.PI / 180) * offsetDistance;
-        
-        break;
+      if (distance < 100) {
+        nearbyCount++;
       }
+    }
+    
+    // Если есть пользователи рядом, разводим их по кругу
+    if (nearbyCount > 0) {
+      const angle = (index * 360 / (nearbyCount + 1)) * (Math.PI / 180);
+      const offsetDistance = 0.0003; // Примерно 30 метров
+      
+      offsetLat = Math.cos(angle) * offsetDistance;
+      offsetLng = Math.sin(angle) * offsetDistance;
     }
     
     return {
@@ -181,7 +183,7 @@ export default function MapScreen() {
           updateLocation(latitude, longitude);
           setCenterLat(latitude);
           setCenterLng(longitude);
-          setMapZoom(16); // Приближаем карту
+          setMapZoom(18); // Сильно приближаем карту
         },
         (error) => {
           console.error('GPS error:', error);
@@ -189,7 +191,7 @@ export default function MapScreen() {
           if (currentUser) {
             setCenterLat(currentUser.lat);
             setCenterLng(currentUser.lng);
-            setMapZoom(16);
+            setMapZoom(18);
           } else {
             alert('Не удалось получить местоположение');
           }
@@ -200,7 +202,7 @@ export default function MapScreen() {
       // Если геолокация не поддерживается, используем координаты пользователя
       setCenterLat(currentUser.lat);
       setCenterLng(currentUser.lng);
-      setMapZoom(16);
+      setMapZoom(18);
     }
   };
 
@@ -354,12 +356,6 @@ export default function MapScreen() {
       </div>
 
       <div className="absolute bottom-24 right-4 z-[1000] flex flex-col gap-2">
-        <button
-          onClick={handleGoToMyLocation}
-          className="bg-white shadow-lg rounded-full p-3 active:scale-95 transition-transform"
-        >
-          <i className="fas fa-crosshairs text-purple-600 text-lg"></i>
-        </button>
         <button
           onClick={handleGoToMyLocation}
           className="bg-gradient-to-r from-purple-500 to-pink-500 shadow-lg rounded-xl px-4 py-3 active:scale-95 transition-transform flex items-center gap-2"

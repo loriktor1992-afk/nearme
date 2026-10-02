@@ -70,7 +70,7 @@ export default function FiltersPanel() {
           <div>
             <label className="block font-bold text-gray-800 mb-3">
               <i className="fas fa-birthday-cake text-purple-500 mr-2"></i>
-              Возраст
+              Возраст: {filters.ageMin} — {filters.ageMax} лет
             </label>
             <div className="flex gap-3 items-center">
               <div className="flex-1">
@@ -81,23 +81,12 @@ export default function FiltersPanel() {
                   max="99"
                   value={filters.ageMin}
                   onChange={e => {
-                    const val = e.target.value === '' ? 14 : parseInt(e.target.value);
-                    if (!isNaN(val) && val >= 14 && val <= 99) {
-                      if (val < filters.ageMax) {
-                        setFilters({ ageMin: val });
-                      } else {
-                        setFilters({ ageMin: filters.ageMax - 1 });
-                      }
-                    }
-                  }}
-                  onBlur={e => {
                     const val = parseInt(e.target.value);
-                    if (isNaN(val) || val < 14) {
-                      setFilters({ ageMin: 14 });
+                    if (!isNaN(val) && val >= 14 && val <= 99) {
+                      setFilters({ ageMin: val });
                     }
                   }}
-                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-purple-500 outline-none text-center text-lg font-semibold"
-                  placeholder="14"
+                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-purple-500 outline-none text-center text-lg font-semibold text-gray-800"
                 />
               </div>
               <div className="text-2xl text-gray-400 pt-6">—</div>
@@ -109,23 +98,12 @@ export default function FiltersPanel() {
                   max="99"
                   value={filters.ageMax}
                   onChange={e => {
-                    const val = e.target.value === '' ? 99 : parseInt(e.target.value);
-                    if (!isNaN(val) && val >= 14 && val <= 99) {
-                      if (val > filters.ageMin) {
-                        setFilters({ ageMax: val });
-                      } else {
-                        setFilters({ ageMax: filters.ageMin + 1 });
-                      }
-                    }
-                  }}
-                  onBlur={e => {
                     const val = parseInt(e.target.value);
-                    if (isNaN(val) || val > 99) {
-                      setFilters({ ageMax: 99 });
+                    if (!isNaN(val) && val >= 14 && val <= 99) {
+                      setFilters({ ageMax: val });
                     }
                   }}
-                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-purple-500 outline-none text-center text-lg font-semibold"
-                  placeholder="99"
+                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-purple-500 outline-none text-center text-lg font-semibold text-gray-800"
                 />
               </div>
             </div>

@@ -11,6 +11,9 @@ interface AdminStats {
   newUsersToday: number;
   activeUsersToday: number;
   messagesToday: number;
+  totalProfileViews: number;
+  totalMatches: number;
+  avgSessionTime: number;
 }
 
 export default function AdminPanel() {
@@ -24,9 +27,12 @@ export default function AdminPanel() {
     newUsersToday: 0,
     activeUsersToday: 0,
     messagesToday: 0,
+    totalProfileViews: 0,
+    totalMatches: 0,
+    avgSessionTime: 0,
   });
   const [selectedUser, setSelectedUser] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'messages' | 'activity'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'chats' | 'messages' | 'activity'>('overview');
 
   // Проверка доступа (только для админа)
   const isAdmin = currentUser?.id === 'admin' || localStorage.getItem('nearme_admin') === 'true';
@@ -44,6 +50,23 @@ export default function AdminPanel() {
     const activeUsersToday = allUsers.filter(u => u.lastSeen >= today).length;
     const messagesToday = messages.filter(m => m.timestamp >= today).length;
 
+    // Подсчёт просмотров профилей
+    const totalProfileViews = allUsers.reduce((sum, user) => sum + (user.profileViews?.length || 0), 0);
+    
+    // Подсчёт матчей (взаимных лайков)
+    const totalMatches = allUsers.reduce((sum, user) => {
+      const userMatches = user.likes?.filter(likeId => {
+        const likedUser = allUsers.find(u => u.id === likeId);
+        return likedUser?.likes?.includes(user.id);
+      }).length || 0;
+      return sum + userMatches;
+    }, 0) / 2; // Делим на 2 потому что каждый матч считается дважды
+    
+    // Среднее время сессии (примерно)
+    const avgSessionTime = allUsers.length > 0 
+      ? allUsers.reduce((sum, user) => sum + (Date.now() - user.lastSeen), 0) / allUsers.length / 60000
+      : 0;
+
     setStats({
       totalUsers: allUsers.length,
       onlineUsers: onlineUsers.length,
@@ -53,6 +76,9 @@ export default function AdminPanel() {
       newUsersToday,
       activeUsersToday,
       messagesToday,
+      totalProfileViews,
+      totalMatches: Math.floor(totalMatches),
+      avgSessionTime: Math.floor(avgSessionTime),
     });
   }, [allUsers, onlineUsers, messages, isAdmin]);
 
@@ -111,7 +137,8 @@ export default function AdminPanel() {
           {[
             { id: 'overview', label: 'Обзор', icon: 'fa-chart-line' },
             { id: 'users', label: 'Пользователи', icon: 'fa-users' },
-            { id: 'messages', label: 'Сообщения', icon: 'fa-comments' },
+            { id: 'chats', label: 'Чаты', icon: 'fa-comments' },
+            { id: 'messages', label: 'Сообщения', icon: 'fa-envelope' },
             { id: 'activity', label: 'Активность', icon: 'fa-clock' },
           ].map(tab => (
             <button
@@ -188,6 +215,18 @@ export default function AdminPanel() {
                 <div className="flex items-center justify-between">
                   <span className="text-gray-600 dark:text-gray-400">Новых за сегодня</span>
                   <span className="font-bold text-green-600">{stats.newUsersToday}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-600 dark:text-gray-400">Просмотров профилей</span>
+                  <span className="font-bold text-blue-600">{stats.totalProfileViews}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-600 dark:text-gray-400">Взаимных симпатий</span>
+                  <span className="font-bold text-pink-600">{stats.totalMatches}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-600 dark:text-gray-400">Среднее время сессии</span>
+                  <span className="font-bold text-purple-600">{stats.avgSessionTime} мин</span>
                 </div>
               </div>
             </div>
@@ -268,6 +307,79 @@ export default function AdminPanel() {
                     </div>
                   );
                 })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Chats Tab */}
+        {activeTab === 'chats' && (
+          <div className="space-y-3">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+              <h3 className="font-bold text-gray-800 dark:text-white mb-3">
+                Все чаты ({stats.totalChats})
+              </h3>
+              <div className="space-y-2 max-h-[60vh] overflow-y-auto">
+                {(() => {
+                  // Группируем сообщения по парам пользователей
+                  const chatPairs = new Map<string, { users: string[]; lastMessage: any; messageCount: number }>();
+                  
+                  messages.forEach(msg => {
+                    const pairKey = [msg.fromId, msg.toId].sort().join('-');
+                    const existing = chatPairs.get(pairKey);
+                    
+                    if (!existing) {
+                      chatPairs.set(pairKey, {
+                        users: [msg.fromId, msg.toId],
+                        lastMessage: msg,
+                        messageCount: 1,
+                      });
+                    } else {
+                      existing.messageCount++;
+                      if (msg.timestamp > existing.lastMessage.timestamp) {
+                        existing.lastMessage = msg;
+                      }
+                    }
+                  });
+                  
+                  return Array.from(chatPairs.entries())
+                    .sort((a, b) => b[1].lastMessage.timestamp - a[1].lastMessage.timestamp)
+                    .map(([pairKey, chat]) => {
+                      const user1 = allUsers.find(u => u.id === chat.users[0]);
+                      const user2 = allUsers.find(u => u.id === chat.users[1]);
+                      
+                      if (!user1 || !user2) return null;
+                      
+                      return (
+                        <div key={pairKey} className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="flex -space-x-2">
+                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-400 to-purple-500 flex items-center justify-center text-sm border-2 border-white dark:border-gray-700">
+                                {user1.avatar}
+                              </div>
+                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-cyan-500 flex items-center justify-center text-sm border-2 border-white dark:border-gray-700">
+                                {user2.avatar}
+                              </div>
+                            </div>
+                            <div className="flex-1">
+                              <div className="text-sm font-medium text-gray-800 dark:text-white">
+                                {user1.name} ↔ {user2.name}
+                              </div>
+                              <div className="text-xs text-gray-400">
+                                {chat.messageCount} сообщений
+                              </div>
+                            </div>
+                            <div className="text-xs text-gray-400">
+                              {formatTime(chat.lastMessage.timestamp)}
+                            </div>
+                          </div>
+                          <div className="text-sm text-gray-700 dark:text-gray-300 pl-10 truncate">
+                            Последнее: {chat.lastMessage.text}
+                          </div>
+                        </div>
+                      );
+                    });
+                })()}
               </div>
             </div>
           </div>

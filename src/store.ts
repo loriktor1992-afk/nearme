@@ -989,7 +989,7 @@ export const useStore = create<AppState>((set, get) => ({
 
         set({ 
           onlineUsers: onlineUsers, 
-          allUsers: allUsers.filter(u => u.id !== get().currentUser?.id), // Все пользователи кроме текущего
+          allUsers: allUsers, // Все пользователи включая текущего (нужно для поиска в чатах)
           totalUsers: allUsers.length 
         });
       } catch (error) {
