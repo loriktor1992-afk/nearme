@@ -95,6 +95,17 @@ exports.onLikeCreated = functions.database
     return null;
   });
 
+exports.onLikeDeleted = functions.database
+  .ref('likes/{userId}/{likerId}')
+  .onDelete(async (snapshot, context) => {
+    const { userId, likerId } = context.params;
+    const updates = {};
+    updates[`matches/${userId}/${likerId}`] = null;
+    updates[`matches/${likerId}/${userId}`] = null;
+    await admin.database().ref().update(updates);
+    return null;
+  });
+
 // Функция для сохранения Telegram chat_id при старте бота
 exports.saveTelegramChatId = functions.https.onRequest(async (req, res) => {
   if (req.method !== 'POST') {

@@ -655,8 +655,6 @@ export const useStore = create<AppState>((set, get) => ({
     update(ref(db), {
       [`likes/${userId}/${currentUser.id}`]: null,
       [`outgoingLikes/${currentUser.id}/${userId}`]: null,
-      [`matches/${currentUser.id}/${userId}`]: null,
-      [`matches/${userId}/${currentUser.id}`]: null,
     });
   },
 
