@@ -1,6 +1,5 @@
 import React, { useEffect } from 'react';
-import { ref, set as setDbValue } from 'firebase/database';
-import { db } from './firebase';
+import { auth } from './auth';
 import { useStore } from './store';
 import RegistrationScreen from './components/RegistrationScreen';
 import MapScreen from './components/MapScreen';
@@ -19,20 +18,26 @@ export default function App() {
     }
   }, [theme]);
 
-  // Save Telegram chat id only for the authenticated profile.
+  // Persist the Telegram private-chat destination only through the trusted backend.
   useEffect(() => {
-    const telegramUser = (window as any).Telegram?.WebApp?.initDataUnsafe?.user;
-    if (!telegramUser?.id) return;
+    if (!isRegistered) return;
+    const endpoint = import.meta.env.VITE_SAVE_TELEGRAM_CHAT_ID_URL;
+    const firebaseUser = auth.currentUser;
+    if (!endpoint || !firebaseUser) return;
 
-    const currentUser = useStore.getState().currentUser;
-    if (!currentUser || currentUser.telegramChatId) return;
-
-    const userRef = ref(db, `users/${currentUser.id}/telegramChatId`);
-    setDbValue(userRef, telegramUser.id.toString());
-
-    useStore.setState({
-      currentUser: { ...currentUser, telegramChatId: telegramUser.id.toString() }
-    });
+    const save = async () => {
+      try {
+        const idToken = await firebaseUser.getIdToken();
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${idToken}` },
+        });
+        if (!response.ok) console.error('Failed to save Telegram chat ID:', response.status);
+      } catch (error) {
+        console.error('Failed to save Telegram chat ID', error);
+      }
+    };
+    void save();
   }, [isRegistered]);
 
   return (
