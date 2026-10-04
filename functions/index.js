@@ -6,14 +6,19 @@ import * as admin from 'firebase-admin';
 
 admin.initializeApp();
 
-const TELEGRAM_BOT_TOKEN = 'YOUR_BOT_TOKEN_HERE'; // Замените на ваш токен
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+
+if (!TELEGRAM_BOT_TOKEN) {
+  console.warn('TELEGRAM_BOT_TOKEN is not configured; Telegram notifications will be skipped.');
+}
 
 // Функция для отправки уведомления через Telegram Bot
 async function sendTelegramNotification(userId: string, message: string) {
   try {
+    if (!TELEGRAM_BOT_TOKEN) return;
     // Получаем Telegram chat_id пользователя из Firebase
-    const userDoc = await admin.firestore().collection('users').doc(userId).get();
-    const userData = userDoc.data();
+    const userSnapshot = await admin.database().ref(`users/${userId}`).get();
+    const userData = userSnapshot.val();
     
     if (!userData?.telegramChatId) {
       console.log(`User ${userId} has no telegramChatId`);
