@@ -245,8 +245,8 @@ export const useStore = create<AppState>((set, get) => ({
 
     set({ isRegistered: true, currentUser: user });
     
-    // Добавляем демо-пользователей если это первый пользователь
-    get().addDemoUsersIfNeeded();
+    // Demo profiles must never be injected into production data.
+    if (import.meta.env.DEV && import.meta.env.VITE_ENABLE_DEMO_USERS === 'true') get().addDemoUsersIfNeeded();
     
     get().listenForUsers();
     get().listenForMessages();
@@ -944,8 +944,12 @@ export const useStore = create<AppState>((set, get) => ({
     const { currentUser } = get();
     if (!currentUser) return;
 
-    const userRef = ref(db, `users/${currentUser.id}`);
-    update(userRef, { lat, lng, lastSeen: Date.now() });
+    // Exact coordinates are owner-only. Public map gets deliberately coarse coordinates (~1 km grid).
+    const exactLocationRef = ref(db, `privateLocations/${currentUser.id}`);
+    update(exactLocationRef, { lat, lng, updatedAt: Date.now() });
+    const publicLat = Math.round(lat * 100) / 100;
+    const publicLng = Math.round(lng * 100) / 100;
+    update(ref(db, `users/${currentUser.id}`), { lat: publicLat, lng: publicLng, lastSeen: Date.now() });
     
     set({ 
       currentUser: { ...currentUser, lat, lng },
