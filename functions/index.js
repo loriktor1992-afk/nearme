@@ -14,6 +14,34 @@ if (!TELEGRAM_BOT_TOKEN) {
   console.warn('TELEGRAM_BOT_TOKEN is not configured; Telegram notifications will be skipped.');
 }
 
+const ALLOWED_ORIGINS = new Set(
+  (process.env.ALLOWED_ORIGINS || '')
+    .split(',')
+    .map(value => value.trim())
+    .filter(Boolean)
+);
+
+function applyCors(req, res) {
+  const origin = req.headers.origin;
+  const allowedOrigin = ALLOWED_ORIGINS.size === 0
+    ? '*'
+    : origin && ALLOWED_ORIGINS.has(origin)
+      ? origin
+      : '';
+
+  if (allowedOrigin) res.set('Access-Control-Allow-Origin', allowedOrigin);
+  res.set('Vary', 'Origin');
+  res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.set('Access-Control-Max-Age', '3600');
+
+  if (req.method === 'OPTIONS') {
+    res.status(204).send('');
+    return true;
+  }
+  return false;
+}
+
 // Функция для отправки уведомления через Telegram Bot
 async function sendTelegramNotification(userId, message) {
   try {
@@ -108,6 +136,7 @@ exports.onLikeDeleted = functions.database
 
 // Функция для сохранения Telegram chat_id при старте бота
 exports.saveTelegramChatId = functions.https.onRequest(async (req, res) => {
+  if (applyCors(req, res)) return;
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'method_not_allowed' });
     return;
@@ -168,6 +197,7 @@ function parseTelegramInitData(initData) {
 
 // Validates Telegram Mini App initData on the trusted server and returns a Firebase custom token.
 exports.telegramAuth = functions.https.onRequest(async (req, res) => {
+  if (applyCors(req, res)) return;
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'method_not_allowed' });
     return;
@@ -202,6 +232,7 @@ exports.telegramAuth = functions.https.onRequest(async (req, res) => {
 // Migrates a legacy local profile to the verified Telegram/Firebase UID.
 // Ownership is proven by a one-time migration token stored on the legacy profile.
 exports.migrateLegacyProfile = functions.https.onRequest(async (req, res) => {
+  if (applyCors(req, res)) return;
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'method_not_allowed' });
     return;
@@ -295,6 +326,7 @@ exports.migrateLegacyProfile = functions.https.onRequest(async (req, res) => {
 
 // Creates a deterministic two-person conversation using the verified Firebase identity.
 exports.createConversation = functions.https.onRequest(async (req, res) => {
+  if (applyCors(req, res)) return;
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'method_not_allowed' });
     return;
@@ -340,6 +372,7 @@ exports.createConversation = functions.https.onRequest(async (req, res) => {
 
 // One-time admin-only backfill from legacy /messages into private conversations.
 exports.backfillLegacyMessages = functions.https.onRequest(async (req, res) => {
+  if (applyCors(req, res)) return;
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'method_not_allowed' });
     return;
