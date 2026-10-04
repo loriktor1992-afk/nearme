@@ -14,7 +14,7 @@ export default function StoriesBar() {
     u.stories && u.stories.some(s => s.expiresAt > Date.now())
   );
 
-  const myActiveStories = currentUser.stories.filter(s => s.expiresAt > Date.now());
+  const myActiveStories = (currentUser.stories || []).filter(s => s.expiresAt > Date.now());
 
   const handleStoryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -115,7 +115,7 @@ export function StoryViewer() {
   const [progress, setProgress] = useState(0);
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  const activeStories = storyViewUser?.stories.filter(s => s.expiresAt > Date.now()) || [];
+  const activeStories = (storyViewUser?.stories || []).filter(s => s.expiresAt > Date.now());
 
   useEffect(() => {
     if (activeStories.length === 0) {
