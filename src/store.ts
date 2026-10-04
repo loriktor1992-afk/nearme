@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { ref, set as fbSet, onValue, push, update, onDisconnect, Unsubscribe, get as fbGet } from 'firebase/database';
+import { ref, set as fbSet, onValue, push, update, onDisconnect, Unsubscribe, get as fbGet, serverTimestamp } from 'firebase/database';
 import { db } from './firebase';
 import { auth } from './auth';
 import { backend } from './backend';
@@ -961,7 +961,7 @@ export const useStore = create<AppState>((set, get) => ({
       fromAvatar: currentUser.avatar,
       fromPhotoUrl: currentUser.photoUrl || '',
       text: trimmed,
-      timestamp: Date.now(),
+      timestamp: serverTimestamp(),
       read: false,
       reactions: {},
     });
@@ -1095,8 +1095,8 @@ export const useStore = create<AppState>((set, get) => ({
     conversationUnsubscribes.clear();
 
     const indexRef = ref(db, `userConversations/${currentUser.id}`);
-    let previousMessages: Message[] = [];
-    let isFirstLoad = true;
+    const previousMessageIds = new Set<string>();
+    const initializedConversations = new Set<string>();
     const conversationMessages = new Map<string, Message[]>();
 
     messageIndexUnsubscribe = onValue(indexRef, (indexSnapshot) => {
@@ -1128,17 +1128,18 @@ export const useStore = create<AppState>((set, get) => ({
             .flat()
             .sort((a, b) => a.timestamp - b.timestamp);
 
-          if (!isFirstLoad) {
-            allMessages
-              .filter(m => !previousMessages.some(pm => pm.id === m.id) && m.toId === currentUser.id && !m.read)
-              .forEach(msg => {
-                const sender = get().allUsers.find(u => u.id === msg.fromId);
-                if (sender) notifyNewMessage(sender.name, msg.text, sender.id);
+          const conversationInitialized = initializedConversations.has(conversationId);
+          if (conversationInitialized) {
+            items
+              .filter(message => !previousMessageIds.has(message.id) && message.toId === currentUser.id && !message.read)
+              .forEach(message => {
+                const sender = get().allUsers.find(user => user.id === message.fromId);
+                if (sender) notifyNewMessage(sender.name, message.text, sender.id);
               });
           }
 
-          isFirstLoad = false;
-          previousMessages = allMessages;
+          items.forEach(message => previousMessageIds.add(message.id));
+          initializedConversations.add(conversationId);
           set({ messages: allMessages });
         }, error => logError(error, 'listenForConversationMessages'));
         conversationUnsubscribes.set(conversationId, unsubscribe);
