@@ -610,8 +610,21 @@ export const useStore = create<AppState>((set, get) => ({
     const updated = { ...currentUser, ...data };
     const userRef = ref(db, `users/${currentUser.id}`);
     update(userRef, data);
-
     set({ currentUser: updated });
+
+    const previousExact = currentUser.privacySettings?.shareExactLocation === true;
+    const nextExact = updated.privacySettings?.shareExactLocation === true;
+    if (previousExact !== nextExact) {
+      onValue(ref(db, `privateLocations/${currentUser.id}`), snapshot => {
+        const exact = snapshot.val() as { lat?: number; lng?: number } | null;
+        if (!exact || typeof exact.lat !== 'number' || typeof exact.lng !== 'number') return;
+        update(userRef, {
+          lat: nextExact ? exact.lat : Math.round(exact.lat * 100) / 100,
+          lng: nextExact ? exact.lng : Math.round(exact.lng * 100) / 100,
+          locationPrecision: nextExact ? 'exact' : 'coarse',
+        });
+      }, { onlyOnce: true });
+    }
   },
 
   likeUser: (userId) => {
