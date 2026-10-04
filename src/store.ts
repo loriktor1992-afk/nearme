@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { ref, set as fbSet, onValue, push, update, onDisconnect, Unsubscribe } from 'firebase/database';
 import { db } from './firebase';
 import { auth } from './auth';
+import { backend } from './backend';
 import { compressImage, isValidImageFile } from './utils/imageCompressor';
 import { logError, rateLimiter } from './utils/helpers';
 import { notifyNewMessage, notifyNewLike, notifyMatch } from './utils/pushNotifications';
@@ -922,9 +923,9 @@ export const useStore = create<AppState>((set, get) => ({
     const trimmed = text.trim();
     if (!currentUser || !selectedUser || !trimmed) return;
 
-    const endpoint = import.meta.env.VITE_CREATE_CONVERSATION_URL;
+    const endpoint = backend.createConversation;
     const firebaseUser = auth.currentUser;
-    if (!endpoint || !firebaseUser) {
+    if (!firebaseUser) {
       throw new Error('Conversation service is not configured');
     }
 
