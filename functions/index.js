@@ -269,3 +269,45 @@ export const migrateLegacyProfile = functions.https.onRequest(async (req, res) =
   }
 });
 
+
+
+// One-time admin-only backfill from legacy /messages into private conversations.
+export const backfillLegacyMessages = functions.https.onRequest(async (req, res) => {
+  if (req.method !== 'POST') {
+    res.status(405).json({ error: 'method_not_allowed' });
+    return;
+  }
+  try {
+    const authHeader = req.headers.authorization || '';
+    const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+    const decoded = await admin.auth().verifyIdToken(idToken);
+    if (decoded.admin !== true) {
+      res.status(403).json({ error: 'admin_required' });
+      return;
+    }
+
+    const rootRef = admin.database().ref();
+    const legacySnapshot = await admin.database().ref('messages').get();
+    const legacyMessages = legacySnapshot.val() || {};
+    const updates = {};
+    let migrated = 0;
+
+    for (const [messageId, message] of Object.entries(legacyMessages)) {
+      if (!message?.fromId || !message?.toId) continue;
+      const members = [String(message.fromId), String(message.toId)].sort();
+      const conversationId = members.join('__');
+      updates[`conversations/${conversationId}/messages/${messageId}`] = message;
+      updates[`conversationMembers/${conversationId}/${members[0]}`] = true;
+      updates[`conversationMembers/${conversationId}/${members[1]}`] = true;
+      updates[`userConversations/${members[0]}/${conversationId}`] = true;
+      updates[`userConversations/${members[1]}/${conversationId}`] = true;
+      migrated += 1;
+    }
+
+    if (migrated > 0) await rootRef.update(updates);
+    res.status(200).json({ migrated, conversationsTouched: new Set(Object.values(legacyMessages).filter(Boolean).map(message => [String(message.fromId), String(message.toId)].sort().join('__'))).size });
+  } catch (error) {
+    console.error('Legacy message backfill failed', error);
+    res.status(401).json({ error: 'backfill_failed' });
+  }
+});
