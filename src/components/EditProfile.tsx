@@ -32,9 +32,9 @@ export default function EditProfile() {
     setUploading(false);
   };
 
-  const handleDeletePhoto = async (photoId: string) => {
+  const handleDeletePhoto = async (photoIndex: number) => {
     if (confirm('Удалить фото?')) {
-      await deletePhoto(photoId);
+      await deletePhoto(photoIndex);
       hapticFeedback.light();
     }
   };
@@ -74,11 +74,11 @@ export default function EditProfile() {
         <div>
           <h3 className="font-bold text-gray-800 dark:text-white mb-3">Фотографии</h3>
           <div className="grid grid-cols-3 gap-2">
-            {currentUser.photos.map((photo) => (
-              <div key={photo.id} className="relative aspect-square rounded-xl overflow-hidden">
-                <img src={photo.url} alt="" className="w-full h-full object-cover" />
+            {currentUser.photos.map((photo, photoIndex) => (
+              <div key={`${photo}-${photoIndex}`} className="relative aspect-square rounded-xl overflow-hidden">
+                <img src={photo} alt="" className="w-full h-full object-cover" />
                 <button
-                  onClick={() => handleDeletePhoto(photo.id)}
+                  onClick={() => handleDeletePhoto(photoIndex)}
                   className="absolute top-1 right-1 w-6 h-6 bg-black/50 rounded-full flex items-center justify-center"
                 >
                   <i className="fas fa-times text-white text-xs"></i>

@@ -6,6 +6,15 @@ import { compressImage, isValidImageFile } from './utils/imageCompressor';
 import { logError, rateLimiter } from './utils/helpers';
 import { notifyNewMessage, notifyNewLike, notifyMatch } from './utils/pushNotifications';
 
+export interface Story {
+  id: string;
+  url: string;
+  type: 'image' | 'video';
+  createdAt: number;
+  expiresAt: number;
+  viewedBy?: Record<string, boolean>;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -40,6 +49,9 @@ export interface User {
   xp: number; // опыт
   achievements: string[]; // достижения
   isPremium: boolean; // премиум статус
+  premiumExpiresAt?: number;
+  isInvisible?: boolean;
+  stories?: Story[];
   telegramChatId?: string; // Telegram chat_id для push-уведомлений
   privacySettings: {
     showDistance: boolean;
@@ -49,6 +61,7 @@ export interface User {
     visibilityRadius: number; // радиус видимости в метрах
     blockedUsers: string[]; // заблокированные пользователи
     showOnMap: boolean; // показываться на карте
+    shareExactLocation?: boolean; // точные координаты только по явному opt-in
   };
 }
 
@@ -116,6 +129,10 @@ interface AppState {
   showAdmin: boolean;
   showPrivacySettings: boolean;
   showNotifications: boolean;
+  showEditProfile: boolean;
+  showPremium: boolean;
+  showStories: boolean;
+  storyViewUser: User | null;
   typingUsers: Record<string, number>; // userId -> timestamp
   filters: Filters;
   theme: 'light' | 'dark';
@@ -130,6 +147,14 @@ interface AppState {
   setShowAdmin: (show: boolean) => void;
   setShowPrivacySettings: (show: boolean) => void;
   setShowNotifications: (show: boolean) => void;
+  setShowEditProfile: (show: boolean) => void;
+  setShowPremium: (show: boolean) => void;
+  setShowStories: (show: boolean) => void;
+  setStoryViewUser: (user: User | null) => void;
+  activatePremium: () => void;
+  toggleInvisible: () => void;
+  uploadStory: (file: File, type: 'image' | 'video') => Promise<void>;
+  viewStory: (userId: string, storyId: string) => void;
   setFilters: (filters: Partial<Filters>) => void;
   resetFilters: () => void;
   sendMessage: (text: string) => void;
@@ -222,6 +247,10 @@ export const useStore = create<AppState>((set, get) => ({
   showAdmin: false,
   showPrivacySettings: false,
   showNotifications: false,
+  showEditProfile: false,
+  showPremium: false,
+  showStories: false,
+  storyViewUser: null,
   typingUsers: {},
   toastMessage: null,
   filters: { gender: 'all', ageMin: null, ageMax: null, distanceMax: 50 },
@@ -425,6 +454,47 @@ export const useStore = create<AppState>((set, get) => ({
   setShowAdmin: (show) => set({ showAdmin: show }),
   setShowPrivacySettings: (show) => set({ showPrivacySettings: show }),
   setShowNotifications: (show) => set({ showNotifications: show }),
+  setShowEditProfile: (show) => set({ showEditProfile: show }),
+  setShowPremium: (show) => set({ showPremium: show }),
+  setShowStories: (show) => set({ showStories: show }),
+  setStoryViewUser: (user) => set({ storyViewUser: user }),
+  activatePremium: () => {
+    const { currentUser } = get();
+    if (!currentUser || !import.meta.env.DEV) return;
+    const premiumExpiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000;
+    update(ref(db, `users/${currentUser.id}`), { isPremium: true, premiumExpiresAt });
+    set({ currentUser: { ...currentUser, isPremium: true, premiumExpiresAt } });
+  },
+  toggleInvisible: () => {
+    const { currentUser } = get();
+    if (!currentUser || !currentUser.isPremium) return;
+    const isInvisible = !currentUser.isInvisible;
+    update(ref(db, `users/${currentUser.id}`), { isInvisible });
+    set({ currentUser: { ...currentUser, isInvisible } });
+  },
+  uploadStory: async (file, type) => {
+    const { currentUser } = get();
+    if (!currentUser) throw new Error('No user');
+    if (type === 'video') throw new Error('Video stories are not enabled yet');
+    if (!isValidImageFile(file)) throw new Error('Invalid image');
+    const url = await compressImage(file, { maxWidth: 1080, maxHeight: 1920, quality: 0.85, maxSizeMB: 3 });
+    const story: Story = {
+      id: `story_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      url,
+      type,
+      createdAt: Date.now(),
+      expiresAt: Date.now() + 24 * 60 * 60 * 1000,
+      viewedBy: {},
+    };
+    const stories = [...(currentUser.stories || []).filter(s => s.expiresAt > Date.now()), story];
+    await fbSet(ref(db, `users/${currentUser.id}/stories`), stories);
+    set({ currentUser: { ...currentUser, stories } });
+  },
+  viewStory: (userId, storyId) => {
+    const { currentUser } = get();
+    if (!currentUser || userId === currentUser.id) return;
+    fbSet(ref(db, `storyViews/${userId}/${storyId}/${currentUser.id}`), true);
+  },
 
   setFilters: (newFilters) => {
     const current = get().filters;

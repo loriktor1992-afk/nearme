@@ -6,17 +6,6 @@ import { migrateLegacyProfileIfNeeded, signInWithTelegram } from "./auth";
 import { tg } from "./telegram";
 
 // Инициализация Telegram Web App
-declare global {
-  interface Window {
-    Telegram?: {
-      WebApp?: {
-        ready: () => void;
-        expand: () => void;
-        requestData: (callback: (data: any) => void) => void;
-      };
-    };
-  }
-}
 
 if (window.Telegram?.WebApp) {
   window.Telegram.WebApp.ready();
