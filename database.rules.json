@@ -99,6 +99,15 @@
         ".read": "auth != null && auth.uid === $uid",
         ".write": false
       }
+    },
+    "profileViews": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        "$viewerId": {
+          ".write": "auth != null && auth.uid === $viewerId && $uid !== auth.uid",
+          ".validate": "!newData.exists() || newData.isNumber()"
+        }
+      }
     }
   }
 }
