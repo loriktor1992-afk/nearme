@@ -41,8 +41,20 @@
         ".read": "auth != null && root.child('conversationMembers').child($conversationId).child(auth.uid).val() === true",
         "messages": {
           "$messageId": {
-            ".write": "auth != null && (root.child('conversationMembers').child($conversationId).child(auth.uid).val() === true || newData.root.child('conversationMembers').child($conversationId).child(auth.uid).val() === true) && ((!data.exists() && newData.child('fromId').val() === auth.uid) || (data.exists() && newData.child('fromId').val() === data.child('fromId').val() && newData.child('toId').val() === data.child('toId').val() && newData.child('text').val() === data.child('text').val() && newData.child('timestamp').val() === data.child('timestamp').val()))",
-            ".validate": "!newData.exists() || (newData.hasChildren(['fromId','toId','text','timestamp']) && newData.child('text').isString() && newData.child('text').val().length > 0 && newData.child('text').val().length <= 4000 && newData.child('timestamp').isNumber())"
+            ".write": "auth != null && !data.exists() && newData.child('fromId').val() === auth.uid && (root.child('conversationMembers').child($conversationId).child(auth.uid).val() === true || newData.root.child('conversationMembers').child($conversationId).child(auth.uid).val() === true)",
+            ".validate": "!newData.exists() || (newData.hasChildren(['fromId','toId','text','timestamp']) && newData.child('text').isString() && newData.child('text').val().length > 0 && newData.child('text').val().length <= 4000 && newData.child('timestamp').isNumber())",
+            "read": {
+              ".write": "auth != null && data.parent().child('toId').val() === auth.uid && newData.val() === true",
+              ".validate": "newData.isBoolean()"
+            },
+            "reactions": {
+              "$emoji": {
+                "$uid": {
+                  ".write": "auth != null && auth.uid === $uid && root.child('conversationMembers').child($conversationId).child(auth.uid).val() === true",
+                  ".validate": "!newData.exists() || newData.val() === true"
+                }
+              }
+            }
           }
         }
       }
