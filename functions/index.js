@@ -35,7 +35,6 @@ async function sendTelegramNotification(userId, message) {
       body: JSON.stringify({
         chat_id: userData.telegramChatId,
         text: message,
-        parse_mode: 'HTML',
       }),
     });
 
@@ -63,7 +62,7 @@ exports.onMessageCreated = functions.database
     const senderData = senderDoc.val();
     
     if (senderData && recipientId) {
-      const notificationText = `💬 <b>Новое сообщение от ${senderData.name}</b>\n\n${message.text}`;
+      const notificationText = `💬 Новое сообщение от ${senderData.name}\n\n${message.text}`;
       await sendTelegramNotification(recipientId, notificationText);
     }
   });
@@ -145,7 +144,9 @@ function parseTelegramInitData(initData) {
   if (hashA.length !== hashB.length || !crypto.timingSafeEqual(hashA, hashB)) return null;
 
   const authDate = Number(params.get('auth_date'));
-  if (!Number.isFinite(authDate) || Math.floor(Date.now() / 1000) - authDate > 3600) return null;
+  const now = Math.floor(Date.now() / 1000);
+  const age = now - authDate;
+  if (!Number.isFinite(authDate) || age < -60 || age > 3600) return null;
 
   try {
     return JSON.parse(params.get('user') || 'null');
@@ -166,6 +167,10 @@ exports.telegramAuth = functions.https.onRequest(async (req, res) => {
   }
 
   const initData = typeof req.body?.initData === 'string' ? req.body.initData : '';
+  if (!initData || initData.length > 16384) {
+    res.status(400).json({ error: 'invalid_init_data_size' });
+    return;
+  }
   const telegramUser = parseTelegramInitData(initData);
   if (!telegramUser?.id) {
     res.status(401).json({ error: 'invalid_telegram_init_data' });
