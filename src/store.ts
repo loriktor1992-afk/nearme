@@ -211,6 +211,10 @@ let usersUnsubscribe: Unsubscribe | null = null;
 let messageIndexUnsubscribe: Unsubscribe | null = null;
 let matchesUnsubscribe: Unsubscribe | null = null;
 const conversationUnsubscribes = new Map<string, Unsubscribe>();
+const typingConversationUnsubscribes = new Map<string, Unsubscribe>();
+const typingConversationStates = new Map<string, Record<string, number>>();
+let lastTypingWriteAt = 0;
+let typingStopTimer: ReturnType<typeof setTimeout> | null = null;
 
 const generateUserId = () => {
   // Production identity is always the verified Firebase UID.
@@ -967,20 +971,24 @@ export const useStore = create<AppState>((set, get) => ({
     });
   },
 
-  setTyping: (userId) => {
-    const { typingUsers } = get();
-    const updated = { ...typingUsers, [userId]: Date.now() };
-    set({ typingUsers: updated });
-    
-    // Убираем статус через 3 секунды
-    setTimeout(() => {
-      const current = get().typingUsers;
-      if (current[userId] && Date.now() - current[userId] >= 3000) {
-        const newTyping = { ...current };
-        delete newTyping[userId];
-        set({ typingUsers: newTyping });
-      }
-    }, 3500);
+  setTyping: () => {
+    const { currentUser, selectedUser } = get();
+    if (!currentUser || !selectedUser) return;
+
+    const now = Date.now();
+    if (now - lastTypingWriteAt < 800) return;
+    lastTypingWriteAt = now;
+
+    const conversationId = conversationIdFor(currentUser.id, selectedUser.id);
+    const typingRef = ref(db, `typing/${conversationId}/${currentUser.id}`);
+    fbSet(typingRef, serverTimestamp());
+    onDisconnect(typingRef).remove();
+
+    if (typingStopTimer) clearTimeout(typingStopTimer);
+    typingStopTimer = setTimeout(() => {
+      fbSet(typingRef, null);
+      typingStopTimer = null;
+    }, 2200);
   },
 
   addReaction: (messageId, emoji) => {
@@ -1093,6 +1101,10 @@ export const useStore = create<AppState>((set, get) => ({
     if (messageIndexUnsubscribe) messageIndexUnsubscribe();
     conversationUnsubscribes.forEach(unsubscribe => unsubscribe());
     conversationUnsubscribes.clear();
+    typingConversationUnsubscribes.forEach(unsubscribe => unsubscribe());
+    typingConversationUnsubscribes.clear();
+    typingConversationStates.clear();
+    set({ typingUsers: {} });
 
     const indexRef = ref(db, `userConversations/${currentUser.id}`);
     const previousMessageIds = new Set<string>();
@@ -1107,6 +1119,10 @@ export const useStore = create<AppState>((set, get) => ({
           unsubscribe();
           conversationUnsubscribes.delete(id);
           conversationMessages.delete(id);
+          const typingUnsubscribe = typingConversationUnsubscribes.get(id);
+          if (typingUnsubscribe) typingUnsubscribe();
+          typingConversationUnsubscribes.delete(id);
+          typingConversationStates.delete(id);
         }
       });
       if (conversationIds.length === 0) {
@@ -1143,6 +1159,23 @@ export const useStore = create<AppState>((set, get) => ({
           set({ messages: allMessages });
         }, error => logError(error, 'listenForConversationMessages'));
         conversationUnsubscribes.set(conversationId, unsubscribe);
+
+        if (!typingConversationUnsubscribes.has(conversationId)) {
+          const typingUnsubscribe = onValue(ref(db, `typing/${conversationId}`), typingSnapshot => {
+            const raw = typingSnapshot.val() || {};
+            const state: Record<string, number> = {};
+            Object.entries(raw).forEach(([uid, value]) => {
+              if (uid !== currentUser.id && typeof value === 'number') state[uid] = value;
+            });
+            typingConversationStates.set(conversationId, state);
+            const aggregate: Record<string, number> = {};
+            typingConversationStates.forEach(conversationState => {
+              Object.assign(aggregate, conversationState);
+            });
+            set({ typingUsers: aggregate });
+          }, error => logError(error, 'listenForTyping'));
+          typingConversationUnsubscribes.set(conversationId, typingUnsubscribe);
+        }
       });
     }, error => logError(error, 'listenForConversationIndex'));
   },

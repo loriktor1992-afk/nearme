@@ -126,6 +126,15 @@
         ".read": "auth != null && auth.uid === $uid",
         ".write": "auth != null && auth.uid === $uid"
       }
+    },
+    "typing": {
+      "$conversationId": {
+        ".read": "auth != null && root.child('conversationMembers').child($conversationId).child(auth.uid).val() === true",
+        "$uid": {
+          ".write": "auth != null && auth.uid === $uid && root.child('conversationMembers').child($conversationId).child(auth.uid).val() === true",
+          ".validate": "!newData.exists() || newData.isNumber()"
+        }
+      }
     }
   }
 }
