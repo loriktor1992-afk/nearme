@@ -7,6 +7,7 @@ import * as admin from 'firebase-admin';
 admin.initializeApp();
 
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const ADMIN_TELEGRAM_IDS = new Set((process.env.ADMIN_TELEGRAM_IDS || '').split(',').map(v => v.trim()).filter(Boolean));
 
 if (!TELEGRAM_BOT_TOKEN) {
   console.warn('TELEGRAM_BOT_TOKEN is not configured; Telegram notifications will be skipped.');
@@ -165,9 +166,62 @@ export const telegramAuth = functions.https.onRequest(async (req, res) => {
     return;
   }
 
-  const uid = `tg_${telegramUser.id}`;
+  const telegramId = String(telegramUser.id);
+  const uid = `tg_${telegramId}`;
+  const isAdmin = ADMIN_TELEGRAM_IDS.has(telegramId);
   const customToken = await admin.auth().createCustomToken(uid, {
-    telegramId: String(telegramUser.id),
+    telegramId,
+    admin: isAdmin,
   });
   res.status(200).json({ customToken, uid });
+});
+
+
+// Migrates a legacy local profile to the verified Telegram/Firebase UID.
+// Ownership is proven by a one-time migration token stored on the legacy profile.
+export const migrateLegacyProfile = functions.https.onRequest(async (req, res) => {
+  if (req.method !== 'POST') {
+    res.status(405).json({ error: 'method_not_allowed' });
+    return;
+  }
+
+  const idToken = typeof req.body?.idToken === 'string' ? req.body.idToken : '';
+  const legacyUserId = typeof req.body?.legacyUserId === 'string' ? req.body.legacyUserId : '';
+  const migrationToken = typeof req.body?.migrationToken === 'string' ? req.body.migrationToken : '';
+  if (!idToken || !legacyUserId || !migrationToken || !legacyUserId.startsWith('user_')) {
+    res.status(400).json({ error: 'invalid_request' });
+    return;
+  }
+
+  try {
+    const decoded = await admin.auth().verifyIdToken(idToken);
+    if (!decoded.uid.startsWith('tg_')) {
+      res.status(403).json({ error: 'verified_telegram_session_required' });
+      return;
+    }
+
+    const legacyRef = admin.database().ref(`users/${legacyUserId}`);
+    const legacySnapshot = await legacyRef.get();
+    const legacy = legacySnapshot.val();
+    if (!legacy || legacy.migrationToken !== migrationToken) {
+      res.status(403).json({ error: 'legacy_profile_ownership_failed' });
+      return;
+    }
+
+    const targetRef = admin.database().ref(`users/${decoded.uid}`);
+    const targetSnapshot = await targetRef.get();
+    if (targetSnapshot.exists()) {
+      res.status(409).json({ error: 'target_profile_exists' });
+      return;
+    }
+
+    const migrated = { ...legacy, id: decoded.uid };
+    delete migrated.migrationToken;
+    await targetRef.set(migrated);
+    await legacyRef.remove();
+    res.status(200).json({ uid: decoded.uid });
+  } catch (error) {
+    console.error('Legacy profile migration failed', error);
+    res.status(401).json({ error: 'migration_failed' });
+  }
 });
