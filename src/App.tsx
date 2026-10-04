@@ -19,33 +19,21 @@ export default function App() {
     }
   }, [theme]);
 
-  // Проверка прав администратора при загрузке
+  // Save Telegram chat id only for the authenticated profile.
   useEffect(() => {
     const telegramUser = (window as any).Telegram?.WebApp?.initDataUnsafe?.user;
-    const adminUsernames = ['loriktor', 'loriktor1992'];
-    
-    if (telegramUser && adminUsernames.includes(telegramUser.username?.toLowerCase())) {
-      localStorage.setItem('nearme_admin', 'true');
-      console.log('🎉 Администратор обнаружен: @' + telegramUser.username);
-    }
-    
-    // Сохраняем Telegram chat_id для push-уведомлений
-    if (telegramUser?.id) {
-      const currentUser = useStore.getState().currentUser;
-      if (currentUser && !currentUser.telegramChatId) {
-        // Сохраняем chat_id в Firebase
-        const userRef = ref(db, `users/${currentUser.id}/telegramChatId`);
-        setDbValue(userRef, telegramUser.id.toString());
-        
-        // Обновляем локальное состояние
-        useStore.setState({
-          currentUser: { ...currentUser, telegramChatId: telegramUser.id.toString() }
-        });
-        
-        console.log('📱 Telegram chat_id сохранен:', telegramUser.id);
-      }
-    }
-  }, []);
+    if (!telegramUser?.id) return;
+
+    const currentUser = useStore.getState().currentUser;
+    if (!currentUser || currentUser.telegramChatId) return;
+
+    const userRef = ref(db, `users/${currentUser.id}/telegramChatId`);
+    setDbValue(userRef, telegramUser.id.toString());
+
+    useStore.setState({
+      currentUser: { ...currentUser, telegramChatId: telegramUser.id.toString() }
+    });
+  }, [isRegistered]);
 
   return (
     <ErrorBoundary>
