@@ -857,23 +857,26 @@ export const useStore = create<AppState>((set, get) => ({
     const messagesRef = ref(db, `conversations/${conversationId}/messages`);
     const newMessageRef = push(messagesRef);
 
-    fbSet(newMessageRef, {
-      fromId: currentUser.id,
-      toId: selectedUser.id,
-      fromName: currentUser.name,
-      fromAvatar: currentUser.avatar,
-      fromPhotoUrl: currentUser.photoUrl || '',
-      text: text.trim(),
-      timestamp: Date.now(),
-      read: false,
-      reactions: {},
-    });
+    const messageId = newMessageRef.key;
+    if (!messageId) return;
 
+    // One atomic write creates membership, indexes and the first message together.
     update(ref(db), {
-      [`userConversations/${currentUser.id}/${conversationId}`]: true,
-      [`userConversations/${selectedUser.id}/${conversationId}`]: true,
       [`conversationMembers/${conversationId}/${currentUser.id}`]: true,
       [`conversationMembers/${conversationId}/${selectedUser.id}`]: true,
+      [`userConversations/${currentUser.id}/${conversationId}`]: true,
+      [`userConversations/${selectedUser.id}/${conversationId}`]: true,
+      [`conversations/${conversationId}/messages/${messageId}`]: {
+        fromId: currentUser.id,
+        toId: selectedUser.id,
+        fromName: currentUser.name,
+        fromAvatar: currentUser.avatar,
+        fromPhotoUrl: currentUser.photoUrl || '',
+        text: text.trim(),
+        timestamp: Date.now(),
+        read: false,
+        reactions: {},
+      },
     });
   },
 
@@ -894,46 +897,32 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   addReaction: (messageId, emoji) => {
-    const { currentUser } = get();
+    const { currentUser, messages } = get();
     if (!currentUser) return;
-
-    const messageRef = ref(db, `messages/${messageId}/reactions/${emoji}`);
-    onValue(messageRef, (snapshot) => {
-      const reactions = snapshot.val() || [];
-      if (reactions.includes(currentUser.id)) {
-        // Убираем реакцию
-        const newReactions = reactions.filter((id: string) => id !== currentUser.id);
-        fbSet(messageRef, newReactions);
-      } else {
-        // Добавляем реакцию
-        fbSet(messageRef, [...reactions, currentUser.id]);
-      }
-    }, { onlyOnce: true });
+    const message = messages.find(m => m.id === messageId);
+    if (!message) return;
+    const conversationId = conversationIdFor(message.fromId, message.toId);
+    const reactionRef = ref(db, `conversations/${conversationId}/messages/${messageId}/reactions/${emoji}/${currentUser.id}`);
+    onValue(reactionRef, snapshot => fbSet(reactionRef, snapshot.exists() ? null : true), { onlyOnce: true });
   },
 
   markAsRead: (messageId) => {
-    const messageRef = ref(db, `messages/${messageId}/read`);
-    fbSet(messageRef, true);
+    const { currentUser, messages } = get();
+    if (!currentUser) return;
+    const message = messages.find(m => m.id === messageId);
+    if (!message || message.toId !== currentUser.id) return;
+    const conversationId = conversationIdFor(message.fromId, message.toId);
+    fbSet(ref(db, `conversations/${conversationId}/messages/${messageId}/read`), true);
   },
 
   deleteChat: async (userId) => {
     const { currentUser, messages } = get();
     if (!currentUser) return;
+    const conversationId = conversationIdFor(currentUser.id, userId);
 
-    // Находим все сообщения между currentUser и userId
-    const chatMessages = messages.filter(m => 
-      (m.fromId === currentUser.id && m.toId === userId) ||
-      (m.fromId === userId && m.toId === currentUser.id)
-    );
-
-    // Удаляем все сообщения из Firebase
-    for (const msg of chatMessages) {
-      const messageRef = ref(db, `messages/${msg.id}`);
-      await fbSet(messageRef, null);
-    }
-
-    // Обновляем локальное состояние
-    const updatedMessages = messages.filter(m => 
+    // Hide the conversation only for the current user; never erase the other participant's history.
+    await fbSet(ref(db, `userConversations/${currentUser.id}/${conversationId}`), null);
+    const updatedMessages = messages.filter(m =>
       !((m.fromId === currentUser.id && m.toId === userId) ||
         (m.fromId === userId && m.toId === currentUser.id))
     );
