@@ -75,13 +75,25 @@ export default function MapScreen() {
     filters,
     updateLocation,
     getUnreadCount,
+    theme,
   } = useStore();
 
   const [centerLat, setCenterLat] = useState(currentUser?.lat || 55.751);
   const [centerLng, setCenterLng] = useState(currentUser?.lng || 37.618);
-  const [mapZoom, setMapZoom] = useState(15);
+  const [mapZoom, setMapZoom] = useState(16);
   const [showNearby, setShowNearby] = useState(false);
   const [expandedMarker, setExpandedMarker] = useState<string | null>(null);
+
+  const mapTilerKey = import.meta.env.VITE_MAPTILER_KEY as string | undefined;
+  const mapTilerMapId = (import.meta.env.VITE_MAPTILER_MAP_ID as string | undefined) || 'streets-v4';
+  const tileUrl = mapTilerKey
+    ? `https://api.maptiler.com/maps/${mapTilerMapId}/256/{z}/{x}/{y}@2x.png?key=${mapTilerKey}`
+    : theme === 'dark'
+      ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+      : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+  const tileAttribution = mapTilerKey
+    ? '&copy; MapTiler &copy; OpenStreetMap contributors'
+    : '&copy; OpenStreetMap contributors &copy; CARTO';
 
   useEffect(() => {
     if (!navigator.geolocation) return;
@@ -136,7 +148,7 @@ export default function MapScreen() {
       if (currentUser) {
         setCenterLat(currentUser.lat);
         setCenterLng(currentUser.lng);
-        setMapZoom(18);
+        setMapZoom(19);
       }
       return;
     }
@@ -146,14 +158,14 @@ export default function MapScreen() {
         updateLocation(coords.latitude, coords.longitude);
         setCenterLat(coords.latitude);
         setCenterLng(coords.longitude);
-        setMapZoom(18);
+        setMapZoom(19);
       },
       error => {
         console.error('GPS error:', error);
         if (currentUser) {
           setCenterLat(currentUser.lat);
           setCenterLng(currentUser.lng);
-          setMapZoom(18);
+          setMapZoom(19);
         }
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
@@ -170,11 +182,25 @@ export default function MapScreen() {
     <div className="relative h-full w-full overflow-hidden bg-slate-100 dark:bg-slate-950">
       <MapContainer
         center={[centerLat, centerLng]}
-        zoom={15}
+        zoom={16}
+        minZoom={3}
+        maxZoom={21}
+        zoomSnap={0.5}
+        zoomDelta={0.5}
+        wheelPxPerZoomLevel={80}
+        zoomAnimation
+        fadeAnimation
+        markerZoomAnimation
         className="h-full w-full z-0"
         zoomControl={false}
       >
-        <TileLayer attribution="" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+        <TileLayer
+          attribution={tileAttribution}
+          url={tileUrl}
+          maxZoom={21}
+          maxNativeZoom={20}
+          detectRetina={!mapTilerKey}
+        />
         <MapController lat={centerLat} lng={centerLng} zoom={mapZoom} />
 
         <Marker
@@ -196,6 +222,24 @@ export default function MapScreen() {
           );
         })}
       </MapContainer>
+
+      <div className="absolute right-3 top-[154px] z-[1080] flex flex-col overflow-hidden rounded-2xl border border-white/70 bg-white/90 shadow-lg backdrop-blur-xl dark:border-slate-700/60 dark:bg-slate-900/90">
+        <button
+          onClick={() => setMapZoom(zoom => Math.min(21, zoom + 1))}
+          className="flex h-11 w-11 items-center justify-center text-slate-700 transition active:scale-95 dark:text-slate-200"
+          aria-label="Приблизить карту"
+        >
+          <i className="fas fa-plus text-sm" />
+        </button>
+        <div className="h-px bg-slate-200/70 dark:bg-slate-700" />
+        <button
+          onClick={() => setMapZoom(zoom => Math.max(3, zoom - 1))}
+          className="flex h-11 w-11 items-center justify-center text-slate-700 transition active:scale-95 dark:text-slate-200"
+          aria-label="Отдалить карту"
+        >
+          <i className="fas fa-minus text-sm" />
+        </button>
+      </div>
 
       <div className="pointer-events-none absolute inset-x-0 top-0 z-[1000] h-32 bg-gradient-to-b from-slate-950/25 to-transparent" />
 
