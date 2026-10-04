@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import React, { useEffect, useMemo, useState } from 'react';
+import { MapContainer, Marker, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { useStore, User } from '../store';
 import UserProfile from './UserProfile';
@@ -18,51 +18,22 @@ import { getDistance, formatDistance } from '../utils/helpers';
 import { getUnreadNotificationsCount } from '../utils/pushNotifications';
 
 delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-});
 
-function createUserIcon(avatar: string, photoUrl: string, isMe: boolean = false, isOnline: boolean = true) {
-  const size = isMe ? 44 : 38;
-  const border = isMe ? '3px solid #8b5cf6' : '2px solid #fff';
-  const shadow = isMe ? '0 0 12px rgba(139,92,246,0.6)' : '0 2px 8px rgba(0,0,0,0.3)';
-  
-  const content = photoUrl 
+function createUserIcon(avatar: string, photoUrl: string, isMe = false, isOnline = true) {
+  const size = isMe ? 54 : 46;
+  const ring = isMe ? '#7c3aed' : '#ffffff';
+  const content = photoUrl
     ? `<img src="${photoUrl}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" />`
-    : `<span style="font-size:${isMe ? '22px' : '18px'};">${avatar}</span>`;
-  
-  const statusColor = isOnline ? '#22c55e' : '#9ca3af';
-  
+    : `<span style="font-size:${isMe ? 24 : 20}px;">${avatar}</span>`;
+
   return L.divIcon({
     className: 'custom-user-marker',
     html: `
-      <div style="
-        width: ${size}px;
-        height: ${size}px;
-        border-radius: 50%;
-        background: linear-gradient(135deg, #ec4899, #8b5cf6);
-        border: ${border};
-        box-shadow: ${shadow};
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        position: relative;
-        overflow: hidden;
-      ">
-        ${content}
-        <div style="
-          position: absolute;
-          bottom: -1px;
-          right: -1px;
-          width: 10px;
-          height: 10px;
-          background: ${statusColor};
-          border-radius: 50%;
-          border: 2px solid white;
-        "></div>
+      <div class="nearme-marker ${isMe ? 'nearme-marker-me' : ''}">
+        <div class="nearme-marker-ring" style="width:${size}px;height:${size}px;border-color:${ring}">
+          <div class="nearme-marker-avatar">${content}</div>
+          <span class="nearme-marker-status" style="background:${isOnline ? '#22c55e' : '#94a3b8'}"></span>
+        </div>
       </div>
     `,
     iconSize: [size, size],
@@ -70,412 +41,407 @@ function createUserIcon(avatar: string, photoUrl: string, isMe: boolean = false,
   });
 }
 
-// Компонент для управления картой
-function MapController({ lat, lng, zoom = 15 }: { lat: number; lng: number; zoom?: number }) {
+function MapController({ lat, lng, zoom }: { lat: number; lng: number; zoom: number }) {
   const map = useMap();
   useEffect(() => {
-    if (lat && lng) {
-      map.setView([lat, lng], zoom);
-    }
+    if (lat && lng) map.setView([lat, lng], zoom);
   }, [map, lat, lng, zoom]);
   return null;
 }
 
 export default function MapScreen() {
-  const { currentUser, onlineUsers, totalUsers, setSelectedUser, setShowChat, showChat, showProfile, showFilters, setShowFilters, showFullProfile, setShowFullProfile, showDistricts, setShowDistricts, showChatList, setShowChatList, showAdmin, setShowAdmin, showPrivacySettings, showNotifications, setShowNotifications, currentDistrict, filters, updateLocation, toastMessage, getUnreadCount } = useStore();
+  const {
+    currentUser,
+    onlineUsers,
+    totalUsers,
+    setSelectedUser,
+    setShowChat,
+    showChat,
+    showProfile,
+    showFilters,
+    setShowFilters,
+    showFullProfile,
+    setShowFullProfile,
+    showDistricts,
+    setShowDistricts,
+    showChatList,
+    setShowChatList,
+    showAdmin,
+    setShowAdmin,
+    showPrivacySettings,
+    showNotifications,
+    setShowNotifications,
+    currentDistrict,
+    filters,
+    updateLocation,
+    getUnreadCount,
+  } = useStore();
+
   const [centerLat, setCenterLat] = useState(currentUser?.lat || 55.751);
   const [centerLng, setCenterLng] = useState(currentUser?.lng || 37.618);
   const [mapZoom, setMapZoom] = useState(15);
   const [showNearby, setShowNearby] = useState(false);
   const [expandedMarker, setExpandedMarker] = useState<string | null>(null);
 
-  // Получаем GPS координаты при загрузке
   useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords;
-          updateLocation(latitude, longitude);
-          setCenterLat(latitude);
-          setCenterLng(longitude);
-        },
-        (error) => {
-          console.error('GPS error:', error);
-        },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-      );
-    }
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        updateLocation(coords.latitude, coords.longitude);
+        setCenterLat(coords.latitude);
+        setCenterLng(coords.longitude);
+      },
+      error => console.error('GPS error:', error),
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
   }, []);
 
-  const handleUserClick = (user: User) => {
-    setExpandedMarker(user.id);
-  };
-
-  const handleCloseExpanded = () => {
-    setExpandedMarker(null);
-  };
-
-  // Функция для расчета смещения маркеров чтобы они не слипались
-  const calculateMarkerOffset = (users: User[], index: number): { lat: number; lng: number } => {
+  const calculateMarkerOffset = (users: User[], index: number) => {
     const user = users[index];
-    let offsetLat = 0;
-    let offsetLng = 0;
-    
-    // Считаем сколько пользователей находятся очень близко (менее 100 метров)
     let nearbyCount = 0;
-    for (let i = 0; i < users.length; i++) {
+
+    for (let i = 0; i < users.length; i += 1) {
       if (i === index) continue;
-      
-      const otherUser = users[i];
-      const distance = getDistance(user.lat, user.lng, otherUser.lat, otherUser.lng);
-      
-      if (distance < 100) {
-        nearbyCount++;
-      }
+      if (getDistance(user.lat, user.lng, users[i].lat, users[i].lng) < 100) nearbyCount += 1;
     }
-    
-    // Если есть пользователи рядом, разводим их по кругу
-    if (nearbyCount > 0) {
-      const angle = (index * 360 / (nearbyCount + 1)) * (Math.PI / 180);
-      const offsetDistance = 0.0003; // Примерно 30 метров
-      
-      offsetLat = Math.cos(angle) * offsetDistance;
-      offsetLng = Math.sin(angle) * offsetDistance;
-    }
-    
+
+    if (!nearbyCount) return { lat: user.lat, lng: user.lng };
+
+    const angle = (index * 360 / (nearbyCount + 1)) * (Math.PI / 180);
     return {
-      lat: user.lat + offsetLat,
-      lng: user.lng + offsetLng,
+      lat: user.lat + Math.cos(angle) * 0.0003,
+      lng: user.lng + Math.sin(angle) * 0.0003,
     };
   };
 
   const nearbyUsers = useMemo(() => {
+    if (!currentUser) return [];
     return onlineUsers
-      .filter(u => {
-        if (!currentUser) return false;
-        
-        // Distance filter
-        const dist = getDistance(currentUser.lat, currentUser.lng, u.lat, u.lng);
-        if (dist > filters.distanceMax * 1000) return false;
-        
-        // Gender filter
-        if (filters.gender !== 'all' && u.gender !== filters.gender) return false;
-        
-        // Age filter
-        if (filters.ageMin !== null && u.age < filters.ageMin) return false;
-        if (filters.ageMax !== null && u.age > filters.ageMax) return false;
-        
+      .filter(user => {
+        const distance = getDistance(currentUser.lat, currentUser.lng, user.lat, user.lng);
+        if (distance > filters.distanceMax * 1000) return false;
+        if (filters.gender !== 'all' && user.gender !== filters.gender) return false;
+        if (filters.ageMin !== null && user.age < filters.ageMin) return false;
+        if (filters.ageMax !== null && user.age > filters.ageMax) return false;
         return true;
       })
-      .sort((a, b) => {
-        if (!currentUser) return 0;
-        const distA = getDistance(currentUser.lat, currentUser.lng, a.lat, a.lng);
-        const distB = getDistance(currentUser.lat, currentUser.lng, b.lat, b.lng);
-        return distA - distB;
-      });
+      .sort((a, b) =>
+        getDistance(currentUser.lat, currentUser.lng, a.lat, a.lng) -
+        getDistance(currentUser.lat, currentUser.lng, b.lat, b.lng)
+      );
   }, [onlineUsers, filters, currentUser]);
 
-  // Функция возврата к текущему местоположению
   const handleGoToMyLocation = () => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords;
-          updateLocation(latitude, longitude);
-          setCenterLat(latitude);
-          setCenterLng(longitude);
-          setMapZoom(18); // Сильно приближаем карту
-        },
-        (error) => {
-          console.error('GPS error:', error);
-          // Если GPS не работает, используем координаты пользователя
-          if (currentUser) {
-            setCenterLat(currentUser.lat);
-            setCenterLng(currentUser.lng);
-            setMapZoom(18);
-          } else {
-            alert('Не удалось получить местоположение');
-          }
-        },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-      );
-    } else if (currentUser) {
-      // Если геолокация не поддерживается, используем координаты пользователя
-      setCenterLat(currentUser.lat);
-      setCenterLng(currentUser.lng);
-      setMapZoom(18);
+    if (!navigator.geolocation) {
+      if (currentUser) {
+        setCenterLat(currentUser.lat);
+        setCenterLng(currentUser.lng);
+        setMapZoom(18);
+      }
+      return;
     }
+
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        updateLocation(coords.latitude, coords.longitude);
+        setCenterLat(coords.latitude);
+        setCenterLng(coords.longitude);
+        setMapZoom(18);
+      },
+      error => {
+        console.error('GPS error:', error);
+        if (currentUser) {
+          setCenterLat(currentUser.lat);
+          setCenterLng(currentUser.lng);
+          setMapZoom(18);
+        }
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
   };
 
   if (!currentUser) return null;
+  if (showChat) return <ChatScreen />;
 
-  if (showChat) {
-    return <ChatScreen />;
-  }
+  const unreadMessages = getUnreadCount();
+  const unreadNotifications = getUnreadNotificationsCount();
 
   return (
-    <div className="w-full h-full relative">
+    <div className="relative h-full w-full overflow-hidden bg-slate-100 dark:bg-slate-950">
       <MapContainer
         center={[centerLat, centerLng]}
         zoom={15}
-        className="w-full h-full z-0"
+        className="h-full w-full z-0"
         zoomControl={false}
       >
-        <TileLayer
-          attribution=''
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
+        <TileLayer attribution="" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
         <MapController lat={centerLat} lng={centerLng} zoom={mapZoom} />
-        
+
         <Marker
           position={[currentUser.lat, currentUser.lng]}
           icon={createUserIcon(currentUser.avatar, currentUser.photoUrl, true, true)}
-        >
-          <Popup>
-            <div className="text-center">
-              <span className="text-lg">Это ты!</span>
-            </div>
-          </Popup>
-        </Marker>
+        />
 
         {onlineUsers.map((user, index) => {
           const isOnline = Date.now() - user.lastSeen < 5 * 60 * 1000;
           const offset = calculateMarkerOffset(onlineUsers, index);
+
           return (
-          <Marker
-            key={user.id}
-            position={[offset.lat, offset.lng]}
-            icon={createUserIcon(user.avatar, user.photoUrl, false, isOnline)}
-            eventHandlers={{
-              click: () => handleUserClick(user),
-            }}
-          >
-            <Popup>
-              <div className="text-center p-1">
-                {user.photoUrl ? (
-                  <img src={user.photoUrl} alt="" className="w-12 h-12 rounded-full mx-auto mb-1 object-cover" />
-                ) : (
-                  <div className="text-2xl mb-1">{user.avatar}</div>
-                )}
-                <div className="font-bold flex items-center justify-center gap-1">
-                  {user.name}, {user.age}
-                  {Date.now() - user.lastSeen < 5 * 60 * 1000 ? (
-                    <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                  ) : (
-                    <span className="w-2 h-2 bg-gray-400 rounded-full"></span>
-                  )}
-                </div>
-                {user.status && <div className="text-xs text-gray-500 mt-0.5 italic">"{user.status}"</div>}
-                <div className="text-xs text-gray-500 mt-1">
-                  {formatDistance(getDistance(currentUser.lat, currentUser.lng, user.lat, user.lng))} от тебя
-                </div>
-                <div className="text-xs text-gray-400 mt-0.5">
-                  {Date.now() - user.lastSeen < 5 * 60 * 1000 
-                    ? 'Онлайн' 
-                    : `Был(а) ${Math.round((Date.now() - user.lastSeen) / 60000)} мин назад`}
-                </div>
-                <button
-                  onClick={() => handleUserClick(user)}
-                  className="mt-2 px-3 py-1 bg-purple-500 text-white rounded-full text-xs font-medium"
-                >
-                  Открыть профиль
-                </button>
-              </div>
-            </Popup>
-          </Marker>
+            <Marker
+              key={user.id}
+              position={[offset.lat, offset.lng]}
+              icon={createUserIcon(user.avatar, user.photoUrl, false, isOnline)}
+              eventHandlers={{ click: () => setExpandedMarker(user.id) }}
+            />
           );
         })}
       </MapContainer>
 
-      <div className="absolute top-0 left-0 right-0 z-[1000] p-3">
-        <div className="bg-white/90 backdrop-blur-lg rounded-2xl shadow-lg px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <button onClick={() => setShowFullProfile(true)} className="relative">
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-[1000] h-32 bg-gradient-to-b from-slate-950/25 to-transparent" />
+
+      <div className="absolute inset-x-0 top-0 z-[1100] px-3 pt-[max(12px,env(safe-area-inset-top))] sm:px-4">
+        <div className="nearme-glass flex items-center gap-3 rounded-[26px] px-3 py-2.5">
+          <button
+            onClick={() => setShowFullProfile(true)}
+            className="relative h-11 w-11 shrink-0 overflow-hidden rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500 p-[2px] active:scale-95"
+          >
+            <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-[14px] bg-white dark:bg-slate-900">
               {currentUser.photoUrl ? (
-                <img src={currentUser.photoUrl} alt="" className="w-10 h-10 rounded-full object-cover border-2 border-purple-400" />
+                <img src={currentUser.photoUrl} alt="" className="h-full w-full object-cover" />
               ) : (
-                <span className="text-2xl">{currentUser.avatar}</span>
+                <span className="text-xl">{currentUser.avatar}</span>
               )}
-            </button>
-            <div>
-              <button onClick={() => setShowFullProfile(true)} className="font-bold text-sm text-gray-800 text-left">{currentUser.name}</button>
-              <div className="text-xs text-green-600 flex items-center gap-1">
-                <span className="w-1.5 h-1.5 bg-green-500 rounded-full inline-block"></span>
-                Онлайн
-              </div>
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <button onClick={() => setShowFullProfile(true)} className="bg-purple-100 dark:bg-purple-900/30 px-3 py-1.5 rounded-full active:scale-95 transition-transform">
-              <i className="fas fa-user text-purple-600 dark:text-purple-400 text-sm"></i>
-            </button>
-            <button onClick={() => setShowChatList(true)} className="bg-pink-100 dark:bg-pink-900/30 px-3 py-1.5 rounded-full active:scale-95 transition-transform relative">
-              <i className="fas fa-comment-dots text-pink-600 dark:text-pink-400 text-sm"></i>
-              {getUnreadCount() > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
-                  {getUnreadCount()}
-                </span>
-              )}
-            </button>
-            <button onClick={() => setShowNotifications(true)} className="bg-yellow-100 dark:bg-yellow-900/30 px-3 py-1.5 rounded-full active:scale-95 transition-transform relative">
-              <i className="fas fa-bell text-yellow-600 dark:text-yellow-400 text-sm"></i>
-              {getUnreadNotificationsCount() > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
-                  {getUnreadNotificationsCount()}
-                </span>
-              )}
-            </button>
-            <div className="bg-blue-100 dark:bg-blue-900/30 px-3 py-1 rounded-full">
-              <span className="text-blue-700 dark:text-blue-400 font-bold text-sm">{totalUsers}</span>
-              <span className="text-blue-500 dark:text-blue-400 text-xs ml-1">всего</span>
+          </button>
+
+          <button onClick={() => setShowFullProfile(true)} className="min-w-0 flex-1 text-left">
+            <div className="truncate text-sm font-bold text-slate-900 dark:text-white">{currentUser.name}</div>
+            <div className="mt-0.5 flex items-center gap-1.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_0_3px_rgba(34,197,94,0.12)]" />
+              В сети · {onlineUsers.length} рядом
             </div>
-            <ThemeToggle />
-            <button 
-              onClick={() => setShowAdmin(true)} 
-              className="bg-gray-100 dark:bg-gray-800 px-3 py-1.5 rounded-full active:scale-95 transition-transform"
-              title="Админ-панель"
+          </button>
+
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setShowChatList(true)}
+              className="nearme-icon-btn relative"
+              aria-label="Чаты"
             >
-              <i className="fas fa-shield-alt text-gray-600 dark:text-gray-400 text-sm"></i>
+              <i className="fas fa-comment-dots" />
+              {unreadMessages > 0 && <span className="nearme-badge">{Math.min(unreadMessages, 9)}</span>}
+            </button>
+
+            <button
+              onClick={() => setShowNotifications(true)}
+              className="nearme-icon-btn relative"
+              aria-label="Уведомления"
+            >
+              <i className="fas fa-bell" />
+              {unreadNotifications > 0 && <span className="nearme-badge">{Math.min(unreadNotifications, 9)}</span>}
+            </button>
+
+            <ThemeToggle />
+
+            <button
+              onClick={() => setShowAdmin(true)}
+              className="nearme-icon-btn"
+              aria-label="Админ-панель"
+            >
+              <i className="fas fa-shield-alt" />
             </button>
           </div>
         </div>
       </div>
 
-      <div className="absolute bottom-24 left-4 z-[1000] flex flex-col gap-2">
-        <button
-          onClick={() => setShowNearby(!showNearby)}
-          className="bg-white shadow-lg rounded-full p-3 active:scale-95 transition-transform"
-        >
-          <i className="fas fa-list text-purple-600 text-lg"></i>
-        </button>
-        <button
-          onClick={() => setShowFilters(true)}
-          className="bg-white shadow-lg rounded-full p-3 active:scale-95 transition-transform"
-        >
-          <i className="fas fa-sliders text-purple-600 text-lg"></i>
-        </button>
+      <div className="absolute right-3 top-24 z-[1050] rounded-full bg-slate-950/70 px-3 py-1.5 text-[11px] font-semibold text-white shadow-lg backdrop-blur-md">
+        {totalUsers} пользователей
       </div>
 
-      <div className="absolute bottom-24 right-4 z-[1000] flex flex-col gap-2">
-        <button
-          onClick={handleGoToMyLocation}
-          className="bg-gradient-to-r from-purple-500 to-pink-500 shadow-lg rounded-xl px-4 py-3 active:scale-95 transition-transform flex items-center gap-2"
-        >
-          <i className="fas fa-map-marked-alt text-white"></i>
-          <span className="text-white font-bold text-sm">НА КАРТУ</span>
-        </button>
+      <div className="absolute inset-x-0 bottom-[max(14px,env(safe-area-inset-bottom))] z-[1100] px-3">
+        <div className="nearme-dock mx-auto grid max-w-md grid-cols-5 items-center rounded-[28px] px-2 py-2">
+          <button onClick={() => setShowNearby(true)} className="nearme-dock-item">
+            <i className="fas fa-users" />
+            <span>Рядом</span>
+          </button>
+
+          <button onClick={() => setShowFilters(true)} className="nearme-dock-item">
+            <i className="fas fa-sliders" />
+            <span>Фильтры</span>
+          </button>
+
+          <button
+            onClick={handleGoToMyLocation}
+            className="mx-auto -mt-7 flex h-15 w-15 items-center justify-center rounded-[22px] bg-gradient-to-br from-violet-600 via-purple-600 to-fuchsia-500 text-xl text-white shadow-[0_14px_34px_rgba(124,58,237,0.38)] transition-transform active:scale-95"
+            aria-label="Моё местоположение"
+          >
+            <i className="fas fa-location-arrow" />
+          </button>
+
+          <button onClick={() => setShowDistricts(true)} className="nearme-dock-item">
+            <i className="fas fa-layer-group" />
+            <span>Районы</span>
+          </button>
+
+          <button onClick={() => setShowFullProfile(true)} className="nearme-dock-item">
+            <i className="fas fa-user" />
+            <span>Профиль</span>
+          </button>
+        </div>
       </div>
 
       {showNearby && (
-        <div className="absolute bottom-0 left-0 right-0 z-[1000] bg-white rounded-t-3xl shadow-2xl max-h-[60vh] overflow-hidden">
-          <div className="p-4 border-b">
-            <div className="flex items-center justify-between">
-              <h3 className="font-bold text-lg text-gray-800">Люди рядом</h3>
-              <button onClick={() => setShowNearby(false)} className="text-gray-400 p-1">
-                <i className="fas fa-times text-lg"></i>
-              </button>
+        <div className="fixed inset-0 z-[2500] flex items-end bg-slate-950/35 backdrop-blur-[2px]" onClick={() => setShowNearby(false)}>
+          <div
+            className="animate-slide-up w-full rounded-t-[32px] bg-white px-4 pb-[max(22px,env(safe-area-inset-bottom))] pt-3 shadow-2xl dark:bg-slate-950"
+            onClick={event => event.stopPropagation()}
+          >
+            <div className="mx-auto mb-4 h-1.5 w-11 rounded-full bg-slate-200 dark:bg-slate-700" />
+            <div className="mb-4 flex items-end justify-between">
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-[0.16em] text-violet-500">NearMe</div>
+                <h2 className="mt-1 text-2xl font-black tracking-tight text-slate-950 dark:text-white">Люди рядом</h2>
+              </div>
+              <div className="rounded-full bg-violet-50 px-3 py-1.5 text-sm font-bold text-violet-700 dark:bg-violet-500/10 dark:text-violet-300">
+                {nearbyUsers.length}
+              </div>
             </div>
-          </div>
-          <div className="overflow-y-auto max-h-[50vh]">
-            {nearbyUsers.map(user => (
-              <div
-                key={user.id}
-                onClick={() => { handleUserClick(user); setShowNearby(false); }}
-                className="flex items-center gap-3 p-4 border-b border-gray-50 active:bg-gray-50 cursor-pointer transition-colors"
-              >
-                <div className="relative">
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-pink-400 to-purple-500 flex items-center justify-center text-xl overflow-hidden">
-                    {user.photoUrl ? (
-                      <img src={user.photoUrl} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      user.avatar
-                    )}
+
+            <div className="max-h-[56vh] space-y-2 overflow-y-auto pb-2">
+              {nearbyUsers.map(user => {
+                const distance = getDistance(currentUser.lat, currentUser.lng, user.lat, user.lng);
+                const isOnline = Date.now() - user.lastSeen < 5 * 60 * 1000;
+
+                return (
+                  <button
+                    key={user.id}
+                    onClick={() => {
+                      setExpandedMarker(user.id);
+                      setShowNearby(false);
+                    }}
+                    className="flex w-full items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50/80 p-3 text-left transition active:scale-[0.99] dark:border-slate-800 dark:bg-slate-900/70"
+                  >
+                    <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500">
+                      {user.photoUrl ? (
+                        <img src={user.photoUrl} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-2xl">{user.avatar}</div>
+                      )}
+                      <span className={`absolute bottom-1 right-1 h-2.5 w-2.5 rounded-full border-2 border-white ${isOnline ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="truncate font-bold text-slate-900 dark:text-white">{user.name}, {user.age}</span>
+                        {user.verified && <i className="fas fa-check-circle text-[12px] text-blue-500" />}
+                      </div>
+                      <div className="mt-0.5 truncate text-sm text-slate-500 dark:text-slate-400">
+                        {user.status || user.bio || 'Рядом с вами'}
+                      </div>
+                      <div className="mt-1 text-xs font-semibold text-violet-600 dark:text-violet-400">
+                        {formatDistance(distance)}
+                      </div>
+                    </div>
+
+                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-slate-400 shadow-sm dark:bg-slate-800">
+                      <i className="fas fa-chevron-right text-xs" />
+                    </div>
+                  </button>
+                );
+              })}
+
+              {nearbyUsers.length === 0 && (
+                <div className="py-12 text-center">
+                  <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-violet-50 text-2xl text-violet-500 dark:bg-violet-500/10">
+                    <i className="fas fa-location-dot" />
                   </div>
-                  <div className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white ${
-                    Date.now() - user.lastSeen < 5 * 60 * 1000 ? 'bg-green-500' : 'bg-gray-400'
-                  }`}></div>
+                  <h3 className="mt-4 font-bold text-slate-900 dark:text-white">Пока никого рядом</h3>
+                  <p className="mt-1 text-sm text-slate-500">Попробуй увеличить радиус в фильтрах.</p>
                 </div>
-                <div className="flex-1">
-                  <div className="font-semibold text-gray-800 flex items-center gap-2">
-                    {user.name}, {user.age}
-                    {Date.now() - user.lastSeen < 5 * 60 * 1000 ? (
-                      <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                    ) : (
-                      <span className="w-2 h-2 bg-gray-400 rounded-full"></span>
-                    )}
-                  </div>
-                  {user.status && <div className="text-xs text-gray-400 italic">"{user.status}"</div>}
-                  <div className="text-sm text-gray-500">{user.bio}</div>
-                  <div className="text-xs text-gray-400 mt-1">
-                    {Date.now() - user.lastSeen < 5 * 60 * 1000 
-                      ? 'Онлайн' 
-                      : Date.now() - user.lastSeen < 30 * 60 * 1000
-                      ? `Был(а) ${Math.round((Date.now() - user.lastSeen) / 60000)} мин назад`
-                      : 'Давно не заходил(а)'}
-                  </div>
-                </div>
-                <div className="text-xs text-purple-600 font-medium">
-                  {Math.round(getDistance(currentUser.lat, currentUser.lng, user.lat, user.lng))}м
-                </div>
-              </div>
-            ))}
-            {nearbyUsers.length === 0 && (
-              <div className="p-8 text-center text-gray-400">
-                <div className="text-4xl mb-2">🔍</div>
-                <p>Пока никого нет рядом</p>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
       )}
+
+      {expandedMarker && (() => {
+        const user = onlineUsers.find(item => item.id === expandedMarker);
+        if (!user) return null;
+
+        const distance = getDistance(currentUser.lat, currentUser.lng, user.lat, user.lng);
+        const isOnline = Date.now() - user.lastSeen < 5 * 60 * 1000;
+
+        return (
+          <div className="fixed inset-0 z-[3000] flex items-end justify-center bg-slate-950/55 p-3 backdrop-blur-sm sm:items-center" onClick={() => setExpandedMarker(null)}>
+            <div
+              className="animate-slide-up w-full max-w-sm overflow-hidden rounded-[30px] bg-white shadow-2xl dark:bg-slate-950"
+              onClick={event => event.stopPropagation()}
+            >
+              <div className="relative h-[360px] bg-gradient-to-br from-violet-500 to-fuchsia-500">
+                {user.photoUrl ? (
+                  <img src={user.photoUrl} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-9xl">{user.avatar}</div>
+                )}
+
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/10 to-transparent" />
+
+                <button
+                  onClick={() => setExpandedMarker(null)}
+                  className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-slate-950/35 text-white backdrop-blur-md"
+                >
+                  <i className="fas fa-times" />
+                </button>
+
+                <div className="absolute inset-x-0 bottom-0 p-5 text-white">
+                  <div className="mb-2 flex items-center gap-2 text-xs font-semibold">
+                    <span className={`h-2 w-2 rounded-full ${isOnline ? 'bg-emerald-400' : 'bg-slate-400'}`} />
+                    {isOnline ? 'Сейчас онлайн' : 'Недавно был(а)'}
+                    <span className="text-white/45">•</span>
+                    <span>{formatDistance(distance)}</span>
+                  </div>
+                  <h3 className="text-3xl font-black tracking-tight">
+                    {user.name}, {user.age}
+                    {user.verified && <i className="fas fa-check-circle ml-2 text-base text-blue-400" />}
+                  </h3>
+                  <p className="mt-1 line-clamp-2 text-sm leading-5 text-white/75">
+                    {user.status || user.bio || 'Открыт(а) для новых знакомств'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-[1fr_auto] gap-3 p-4">
+                <button
+                  onClick={() => {
+                    setExpandedMarker(null);
+                    setSelectedUser(user);
+                  }}
+                  className="h-13 rounded-2xl bg-gradient-to-r from-violet-600 to-fuchsia-500 px-5 font-bold text-white shadow-[0_12px_28px_rgba(124,58,237,0.24)] active:scale-[0.98]"
+                >
+                  Открыть профиль
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedUser(user);
+                    setExpandedMarker(null);
+                    setShowChat(true);
+                  }}
+                  className="flex h-13 w-13 items-center justify-center rounded-2xl bg-slate-100 text-violet-600 active:scale-95 dark:bg-slate-900 dark:text-violet-400"
+                  aria-label="Написать"
+                >
+                  <i className="fas fa-comment-dots" />
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {showProfile && <UserProfile />}
       {showFilters && <FiltersPanel />}
       {showFullProfile && <FullProfile />}
       {showDistricts && !currentDistrict && <DistrictsPanel />}
       {currentDistrict && <DistrictView />}
-      
-      {/* Увеличенный маркер */}
-      {expandedMarker && (() => {
-        const user = onlineUsers.find(u => u.id === expandedMarker);
-        if (!user) return null;
-        return (
-          <div className="fixed inset-0 z-[3000] bg-black/80 flex items-center justify-center p-4" onClick={handleCloseExpanded}>
-            <div className="bg-white rounded-3xl max-w-sm w-full overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
-              {user.photoUrl ? (
-                <img src={user.photoUrl} alt="" className="w-full h-80 object-cover" />
-              ) : (
-                <div className="w-full h-80 bg-gradient-to-br from-pink-400 to-purple-500 flex items-center justify-center text-9xl">
-                  {user.avatar}
-                </div>
-              )}
-              <div className="p-5">
-                <h3 className="text-2xl font-bold text-gray-800">{user.name}, {user.age}</h3>
-                {user.status && <p className="text-gray-500 italic mt-1">"{user.status}"</p>}
-                <p className="text-gray-600 mt-2">{user.bio}</p>
-                <div className="flex gap-3 mt-4">
-                  <button
-                    onClick={() => {
-                      handleCloseExpanded();
-                      setSelectedUser(user);
-                    }}
-                    className="flex-1 py-3 bg-gradient-to-r from-pink-500 to-purple-600 text-white font-semibold rounded-xl shadow-lg active:scale-95 transition-all"
-                  >
-                    Открыть профиль
-                  </button>
-                  <button
-                    onClick={handleCloseExpanded}
-                    className="px-5 py-3 bg-gray-100 text-gray-600 font-semibold rounded-xl active:scale-95 transition-all"
-                  >
-                    Закрыть
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
-      
       {showChatList && <ChatList />}
       {showAdmin && <AdminPanel />}
       {showPrivacySettings && <PrivacySettings />}
