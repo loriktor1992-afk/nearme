@@ -1,4 +1,6 @@
 import React, { useEffect } from 'react';
+import { ref, set as setDbValue } from 'firebase/database';
+import { db } from './firebase';
 import { useStore } from './store';
 import RegistrationScreen from './components/RegistrationScreen';
 import MapScreen from './components/MapScreen';
@@ -32,10 +34,8 @@ export default function App() {
       const currentUser = useStore.getState().currentUser;
       if (currentUser && !currentUser.telegramChatId) {
         // Сохраняем chat_id в Firebase
-        const { ref, set } = require('firebase/database');
-        const { db } = require('./firebase');
         const userRef = ref(db, `users/${currentUser.id}/telegramChatId`);
-        set(userRef, telegramUser.id.toString());
+        setDbValue(userRef, telegramUser.id.toString());
         
         // Обновляем локальное состояние
         useStore.setState({
