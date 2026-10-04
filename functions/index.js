@@ -19,7 +19,7 @@ async function sendTelegramNotification(userId, message) {
   try {
     if (!TELEGRAM_BOT_TOKEN) return;
     // Получаем Telegram chat_id пользователя из Firebase
-    const userSnapshot = await admin.database().ref(`users/${userId}`).get();
+    const userSnapshot = await admin.database().ref(`privateUsers/${userId}`).get();
     const userData = userSnapshot.val();
     
     if (!userData?.telegramChatId) {
@@ -110,15 +110,33 @@ exports.onMatchCreated = functions.database
 
 // Функция для сохранения Telegram chat_id при старте бота
 exports.saveTelegramChatId = functions.https.onRequest(async (req, res) => {
-  const { userId, chatId } = req.body;
-  
-  if (!userId || !chatId) {
-    res.status(400).send('Missing userId or chatId');
+  if (req.method !== 'POST') {
+    res.status(405).json({ error: 'method_not_allowed' });
     return;
   }
-  
-  await admin.database().ref(`users/${userId}/telegramChatId`).set(chatId);
-  res.status(200).send('Chat ID saved');
+
+  try {
+    const authHeader = req.headers.authorization || '';
+    const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+    if (!idToken) {
+      res.status(401).json({ error: 'authentication_required' });
+      return;
+    }
+
+    const decoded = await admin.auth().verifyIdToken(idToken);
+    const chatId = req.body?.chatId;
+    if (chatId === undefined || chatId === null || String(chatId).length > 64) {
+      res.status(400).json({ error: 'invalid_chat_id' });
+      return;
+    }
+
+    // The authenticated UID is authoritative; callers cannot write another user's chat ID.
+    await admin.database().ref(`privateUsers/${decoded.uid}/telegramChatId`).set(String(chatId));
+    res.status(200).json({ ok: true });
+  } catch (error) {
+    console.error('Failed to save Telegram chat ID', error);
+    res.status(401).json({ error: 'invalid_authentication' });
+  }
 });
 
 function parseTelegramInitData(initData) {
