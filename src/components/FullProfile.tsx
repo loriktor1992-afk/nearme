@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useStore } from '../store';
-import { getZodiacSign, calculateAge } from '../utils/helpers';
+import { getZodiacSign } from '../utils/helpers';
 import PhotoViewer from './PhotoViewer';
 
 export default function FullProfile() {
@@ -186,12 +186,12 @@ export default function FullProfile() {
   ];
 
   return (
-    <div className="fixed inset-0 z-[2500] bg-gray-50 dark:bg-gray-900 overflow-y-auto">
+    <div className="fixed inset-0 z-[2500] overflow-y-auto bg-slate-50 dark:bg-slate-950">
       {/* Header */}
-      <div className="bg-gradient-to-br from-pink-500 via-purple-500 to-indigo-600 pt-8 pb-16 px-4 relative">
+      <div className="relative overflow-hidden bg-slate-950 px-4 pb-12 pt-[max(18px,env(safe-area-inset-top))] text-white">
         <button
           onClick={() => setShowFullProfile(false)}
-          className="absolute top-4 left-4 w-10 h-10 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-colors"
+          className="absolute left-4 top-[max(16px,env(safe-area-inset-top))] z-10 flex h-10 w-10 items-center justify-center rounded-2xl bg-white/10 text-white backdrop-blur-xl transition active:scale-95"
         >
           <i className="fas fa-arrow-left text-white"></i>
         </button>
@@ -199,7 +199,7 @@ export default function FullProfile() {
         {editing ? (
           <button
             onClick={handleSave}
-            className="absolute top-4 right-4 px-4 py-2 bg-white/20 rounded-full text-white font-medium text-sm"
+            className="absolute right-4 top-[max(16px,env(safe-area-inset-top))] z-10 rounded-2xl bg-white/10 px-4 py-2 text-sm font-bold text-white backdrop-blur-xl active:scale-95"
           >
             💾 Сохранить
           </button>
@@ -213,9 +213,9 @@ export default function FullProfile() {
         )}
 
         {/* Photo & Basic Info */}
-        <div className="text-center mt-4">
+        <div className="relative z-[1] mt-14 text-center">
           <div className="relative inline-block">
-            <div className="w-32 h-32 rounded-full bg-white/20 backdrop-blur-lg border-4 border-white overflow-hidden mx-auto">
+            <div className="mx-auto h-32 w-32 overflow-hidden rounded-[34px] border border-white/20 bg-white/10 shadow-[0_24px_60px_rgba(124,58,237,.30)] backdrop-blur-xl">
               {currentUser.photoUrl ? (
                 <img src={currentUser.photoUrl} alt="" className="w-full h-full object-cover" />
               ) : (
@@ -227,12 +227,12 @@ export default function FullProfile() {
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading}
-              className="absolute bottom-1 right-1 w-10 h-10 bg-white rounded-full shadow-lg flex items-center justify-center disabled:opacity-50"
+              className="absolute -bottom-1 -right-1 flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-violet-600 shadow-xl disabled:opacity-50"
             >
               {uploading ? (
-                <i className="fas fa-spinner fa-spin text-purple-600"></i>
+                <i className="fas fa-spinner fa-spin text-violet-600"></i>
               ) : (
-                <i className="fas fa-camera text-purple-600"></i>
+                <i className="fas fa-camera text-violet-600"></i>
               )}
             </button>
             {currentUser.verified === true && (
@@ -242,7 +242,7 @@ export default function FullProfile() {
             )}
           </div>
 
-          <h1 className="text-3xl font-bold text-white mt-4 flex items-center justify-center gap-2">
+          <h1 className="mt-5 flex items-center justify-center gap-2 text-3xl font-black tracking-tight text-white">
             {currentUser.name}, {currentUser.age}
           </h1>
 
@@ -262,7 +262,7 @@ export default function FullProfile() {
           )}
 
           {/* Level & XP */}
-          <div className="mt-3 inline-flex items-center gap-2 bg-white/20 backdrop-blur px-4 py-2 rounded-full">
+          <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.08] px-4 py-2 backdrop-blur-xl">
             <span className="text-white text-sm">{getLevelTitle(userLevel)}</span>
             <span className="text-white/60 text-xs">Уровень {userLevel}</span>
           </div>
@@ -270,16 +270,16 @@ export default function FullProfile() {
       </div>
 
       {/* Tabs */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10">
+      <div className="sticky top-0 z-20 border-b border-slate-200/70 bg-white/92 px-2 backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/92">
         <div className="flex overflow-x-auto">
           {tabs.map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
-              className={`flex-1 min-w-[100px] px-4 py-3 text-sm font-medium whitespace-nowrap ${
+              className={`min-w-[112px] flex-1 whitespace-nowrap px-4 py-3.5 text-sm font-bold transition ${
                 activeTab === tab.id
-                  ? 'text-purple-600 dark:text-purple-400 border-b-2 border-purple-600 dark:border-purple-400'
-                  : 'text-gray-500 dark:text-gray-400'
+                  ? 'text-violet-600 dark:text-violet-400 border-b-2 border-violet-600 dark:border-violet-400'
+                  : 'text-slate-400 dark:text-slate-500'
               }`}
             >
               <i className={`fas ${tab.icon} mr-1`}></i>
@@ -290,19 +290,19 @@ export default function FullProfile() {
       </div>
 
       {/* Content */}
-      <div className="p-4 pb-8">
+      <div className="mx-auto max-w-3xl p-4 pb-[max(32px,env(safe-area-inset-bottom))]">
         {/* Main Tab */}
         {activeTab === 'main' && (
           <div className="space-y-4">
             {/* Stats */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-5">
-              <h3 className="font-bold text-gray-800 dark:text-white mb-3 flex items-center gap-2">
-                <i className="fas fa-chart-bar text-purple-500"></i>
+            <div className="rounded-[24px] border border-slate-100 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+              <h3 className="font-bold text-slate-950 dark:text-white mb-3 flex items-center gap-2">
+                <i className="fas fa-chart-bar text-violet-500"></i>
                 Статистика
               </h3>
               <div className="grid grid-cols-3 gap-3">
-                <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-3 text-center">
-                  <div className="text-2xl font-bold text-purple-600">{userLikes.length}</div>
+                <div className="bg-violet-50 dark:bg-violet-500/10 rounded-xl p-3 text-center">
+                  <div className="text-2xl font-bold text-violet-600">{userLikes.length}</div>
                   <div className="text-xs text-gray-500">Лайков</div>
                 </div>
                 <div className="bg-pink-50 dark:bg-pink-900/20 rounded-xl p-3 text-center">
@@ -317,9 +317,9 @@ export default function FullProfile() {
             </div>
 
             {/* Basic Info */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-5">
-              <h3 className="font-bold text-gray-800 dark:text-white mb-3 flex items-center gap-2">
-                <i className="fas fa-info-circle text-purple-500"></i>
+            <div className="rounded-[24px] border border-slate-100 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+              <h3 className="font-bold text-slate-950 dark:text-white mb-3 flex items-center gap-2">
+                <i className="fas fa-info-circle text-violet-500"></i>
                 Основная информация
               </h3>
               <div className="space-y-3">
@@ -331,10 +331,10 @@ export default function FullProfile() {
                       value={editCity}
                       onChange={e => setEditCity(e.target.value)}
                       placeholder="Город"
-                      className="flex-1 px-3 py-1 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white"
+                      className="flex-1 px-3 py-1 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-slate-950 dark:text-white"
                     />
                   ) : (
-                    <span className="text-gray-600 dark:text-gray-300">{currentUser.city || 'Не указан'}</span>
+                    <span className="text-slate-600 dark:text-slate-300">{currentUser.city || 'Не указан'}</span>
                   )}
                 </div>
                 <div className="flex items-center gap-3">
@@ -345,10 +345,10 @@ export default function FullProfile() {
                       value={editHeight}
                       onChange={e => setEditHeight(parseInt(e.target.value) || 0)}
                       placeholder="Рост (см)"
-                      className="flex-1 px-3 py-1 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white"
+                      className="flex-1 px-3 py-1 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-slate-950 dark:text-white"
                     />
                   ) : (
-                    <span className="text-gray-600 dark:text-gray-300">{currentUser.height ? `${currentUser.height} см` : 'Не указан'}</span>
+                    <span className="text-slate-600 dark:text-slate-300">{currentUser.height ? `${currentUser.height} см` : 'Не указан'}</span>
                   )}
                 </div>
                 <div className="flex items-center gap-3">
@@ -362,7 +362,7 @@ export default function FullProfile() {
                         placeholder="День"
                         min="1"
                         max="31"
-                        className="w-16 px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white text-center"
+                        className="w-16 px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-slate-950 dark:text-white text-center"
                       />
                       <input
                         type="number"
@@ -371,7 +371,7 @@ export default function FullProfile() {
                         placeholder="Месяц"
                         min="1"
                         max="12"
-                        className="w-16 px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white text-center"
+                        className="w-16 px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-slate-950 dark:text-white text-center"
                       />
                       <input
                         type="number"
@@ -380,11 +380,11 @@ export default function FullProfile() {
                         placeholder="Год"
                         min="1950"
                         max={new Date().getFullYear() - 14}
-                        className="flex-1 px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white text-center"
+                        className="flex-1 px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-slate-950 dark:text-white text-center"
                       />
                     </div>
                   ) : (
-                    <span className="text-gray-600 dark:text-gray-300">
+                    <span className="text-slate-600 dark:text-slate-300">
                       {currentUser.birthDay && currentUser.birthMonth && currentUser.birthYear 
                         ? `${currentUser.birthDay}.${currentUser.birthMonth.toString().padStart(2, '0')}.${currentUser.birthYear} (${currentUser.age} лет)` 
                         : `${currentUser.age} лет`}
@@ -393,7 +393,7 @@ export default function FullProfile() {
                 </div>
                 <div className="flex items-center gap-3">
                   <i className="fas fa-star text-purple-400 w-5"></i>
-                  <span className="text-gray-600 dark:text-gray-300">{getZodiac()}</span>
+                  <span className="text-slate-600 dark:text-slate-300">{getZodiac()}</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <i className="fas fa-clock text-purple-400 w-5"></i>
@@ -403,26 +403,26 @@ export default function FullProfile() {
                       value={editActivityTime}
                       onChange={e => setEditActivityTime(e.target.value)}
                       placeholder="Когда обычно онлайн"
-                      className="flex-1 px-3 py-1 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white"
+                      className="flex-1 px-3 py-1 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-slate-950 dark:text-white"
                     />
                   ) : (
-                    <span className="text-gray-600 dark:text-gray-300">{currentUser.activityTime || 'Не указано'}</span>
+                    <span className="text-slate-600 dark:text-slate-300">{currentUser.activityTime || 'Не указано'}</span>
                   )}
                 </div>
               </div>
             </div>
 
             {/* Photo Gallery Feed */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-5">
+            <div className="rounded-[24px] border border-slate-100 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-bold text-gray-800 dark:text-white flex items-center gap-2">
-                  <i className="fas fa-images text-purple-500"></i>
+                <h3 className="font-bold text-slate-950 dark:text-white flex items-center gap-2">
+                  <i className="fas fa-images text-violet-500"></i>
                   Мои фотографии
                 </h3>
                 {(!currentUser.photos || currentUser.photos.length < 30) && (
                   <button
                     onClick={() => photoInputRef.current?.click()}
-                    className="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg text-sm font-medium flex items-center gap-2 shadow-lg hover:shadow-xl transition-shadow"
+                    className="px-4 py-2 bg-gradient-to-r from-violet-600 to-fuchsia-500 text-white rounded-lg text-sm font-medium flex items-center gap-2 shadow-lg hover:shadow-xl transition-shadow"
                   >
                     <i className="fas fa-camera"></i>
                     Добавить
@@ -470,11 +470,11 @@ export default function FullProfile() {
               ) : (
                 <div className="text-center py-12">
                   <i className="fas fa-camera text-6xl text-gray-300 dark:text-gray-600 mb-4"></i>
-                  <p className="text-gray-500 dark:text-gray-400 mb-2">Пока нет фотографий</p>
+                  <p className="text-slate-500 dark:text-slate-400 mb-2">Пока нет фотографий</p>
                   <p className="text-sm text-gray-400 dark:text-gray-500 mb-4">Добавьте первое фото в свою ленту</p>
                   <button
                     onClick={() => photoInputRef.current?.click()}
-                    className="px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg font-medium shadow-lg hover:shadow-xl transition-shadow"
+                    className="px-6 py-3 bg-gradient-to-r from-violet-600 to-fuchsia-500 text-white rounded-lg font-medium shadow-lg hover:shadow-xl transition-shadow"
                   >
                     <i className="fas fa-camera mr-2"></i>
                     Добавить первое фото
@@ -488,9 +488,9 @@ export default function FullProfile() {
         {/* About Tab */}
         {activeTab === 'about' && (
           <div className="space-y-4">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-5">
-              <h3 className="font-bold text-gray-800 dark:text-white mb-3 flex items-center gap-2">
-                <i className="fas fa-user text-purple-500"></i>
+            <div className="rounded-[24px] border border-slate-100 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+              <h3 className="font-bold text-slate-950 dark:text-white mb-3 flex items-center gap-2">
+                <i className="fas fa-user text-violet-500"></i>
                 О себе
               </h3>
               {editing ? (
@@ -498,16 +498,16 @@ export default function FullProfile() {
                   value={editBio}
                   onChange={e => setEditBio(e.target.value)}
                   placeholder="Расскажи о себе..."
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white resize-none h-32"
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-slate-950 dark:text-white resize-none h-32"
                   maxLength={300}
                 />
               ) : (
-                <p className="text-gray-600 dark:text-gray-300">{currentUser.bio || 'Пока пусто...'}</p>
+                <p className="text-slate-600 dark:text-slate-300">{currentUser.bio || 'Пока пусто...'}</p>
               )}
             </div>
 
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-5">
-              <h3 className="font-bold text-gray-800 dark:text-white mb-3 flex items-center gap-2">
+            <div className="rounded-[24px] border border-slate-100 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+              <h3 className="font-bold text-slate-950 dark:text-white mb-3 flex items-center gap-2">
                 <i className="fas fa-heart text-pink-500"></i>
                 Кого ищу
               </h3>
@@ -517,11 +517,11 @@ export default function FullProfile() {
                   value={editLookingFor}
                   onChange={e => setEditLookingFor(e.target.value)}
                   placeholder="Дружба, отношения, общение..."
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white"
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-slate-950 dark:text-white"
                   maxLength={100}
                 />
               ) : (
-                <p className="text-gray-600 dark:text-gray-300">{currentUser.lookingFor || 'Не указано'}</p>
+                <p className="text-slate-600 dark:text-slate-300">{currentUser.lookingFor || 'Не указано'}</p>
               )}
             </div>
           </div>
@@ -530,9 +530,9 @@ export default function FullProfile() {
         {/* Interests Tab */}
         {activeTab === 'interests' && (
           <div className="space-y-4">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-5">
-              <h3 className="font-bold text-gray-800 dark:text-white mb-3 flex items-center gap-2">
-                <i className="fas fa-tags text-purple-500"></i>
+            <div className="rounded-[24px] border border-slate-100 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+              <h3 className="font-bold text-slate-950 dark:text-white mb-3 flex items-center gap-2">
+                <i className="fas fa-tags text-violet-500"></i>
                 Интересы
               </h3>
               {editing ? (
@@ -541,13 +541,13 @@ export default function FullProfile() {
                   value={editInterests}
                   onChange={e => setEditInterests(e.target.value)}
                   placeholder="Через запятую: музыка, спорт, кино"
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white"
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-slate-950 dark:text-white"
                 />
               ) : (
                 <div className="flex flex-wrap gap-2">
                   {currentUser.interests && currentUser.interests.length > 0 ? (
                     currentUser.interests.map((interest, idx) => (
-                      <span key={idx} className="px-3 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full text-sm">
+                      <span key={idx} className="px-3 py-1 bg-violet-50 dark:bg-violet-500/10 text-violet-700 dark:text-violet-300 rounded-full text-sm">
                         {interest}
                       </span>
                     ))
@@ -558,8 +558,8 @@ export default function FullProfile() {
               )}
             </div>
 
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-5">
-              <h3 className="font-bold text-gray-800 dark:text-white mb-3 flex items-center gap-2">
+            <div className="rounded-[24px] border border-slate-100 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+              <h3 className="font-bold text-slate-950 dark:text-white mb-3 flex items-center gap-2">
                 <i className="fas fa-language text-blue-500"></i>
                 Языки
               </h3>
@@ -569,7 +569,7 @@ export default function FullProfile() {
                   value={editLanguages}
                   onChange={e => setEditLanguages(e.target.value)}
                   placeholder="Через запятую: Русский, English"
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white"
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-slate-950 dark:text-white"
                 />
               ) : (
                 <div className="flex flex-wrap gap-2">
@@ -590,9 +590,9 @@ export default function FullProfile() {
 
         {/* Social Tab */}
         {activeTab === 'social' && (
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-5">
-            <h3 className="font-bold text-gray-800 dark:text-white mb-3 flex items-center gap-2">
-              <i className="fas fa-share-alt text-purple-500"></i>
+          <div className="rounded-[24px] border border-slate-100 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <h3 className="font-bold text-slate-950 dark:text-white mb-3 flex items-center gap-2">
+              <i className="fas fa-share-alt text-violet-500"></i>
               Социальные сети
             </h3>
             <div className="space-y-3">
@@ -603,7 +603,7 @@ export default function FullProfile() {
                   value={editInstagram}
                   onChange={e => setEditInstagram(e.target.value)}
                   placeholder="@username"
-                  className="w-full px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white"
+                  className="w-full px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-slate-950 dark:text-white"
                   disabled={!editing}
                 />
               </div>
@@ -614,7 +614,7 @@ export default function FullProfile() {
                   value={editVk}
                   onChange={e => setEditVk(e.target.value)}
                   placeholder="Ссылка на профиль"
-                  className="w-full px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white"
+                  className="w-full px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-slate-950 dark:text-white"
                   disabled={!editing}
                 />
               </div>
@@ -625,7 +625,7 @@ export default function FullProfile() {
                   value={editTelegram}
                   onChange={e => setEditTelegram(e.target.value)}
                   placeholder="@username"
-                  className="w-full px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white"
+                  className="w-full px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-slate-950 dark:text-white"
                   disabled={!editing}
                 />
               </div>
@@ -635,15 +635,15 @@ export default function FullProfile() {
 
         {/* Privacy Tab */}
         {activeTab === 'privacy' && (
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-5">
-            <h3 className="font-bold text-gray-800 dark:text-white mb-3 flex items-center gap-2">
-              <i className="fas fa-lock text-purple-500"></i>
+          <div className="rounded-[24px] border border-slate-100 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <h3 className="font-bold text-slate-950 dark:text-white mb-3 flex items-center gap-2">
+              <i className="fas fa-lock text-violet-500"></i>
               Настройки приватности
             </h3>
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="font-medium text-gray-800 dark:text-white">Показывать расстояние</div>
+                  <div className="font-medium text-slate-950 dark:text-white">Показывать расстояние</div>
                   <div className="text-sm text-gray-500">Другие видят сколько метров до вас</div>
                 </div>
                 <button
@@ -655,7 +655,7 @@ export default function FullProfile() {
               </div>
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="font-medium text-gray-800 dark:text-white">Показывать время активности</div>
+                  <div className="font-medium text-slate-950 dark:text-white">Показывать время активности</div>
                   <div className="text-sm text-gray-500">Когда вы были онлайн</div>
                 </div>
                 <button
@@ -667,7 +667,7 @@ export default function FullProfile() {
               </div>
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="font-medium text-gray-800 dark:text-white">Разрешить сообщения</div>
+                  <div className="font-medium text-slate-950 dark:text-white">Разрешить сообщения</div>
                   <div className="text-sm text-gray-500">Кто может писать вам</div>
                 </div>
                 <button
@@ -684,7 +684,7 @@ export default function FullProfile() {
                   const { setShowPrivacySettings } = useStore.getState();
                   setShowPrivacySettings(true);
                 }}
-                className="w-full py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-semibold flex items-center justify-center gap-2"
+                className="w-full py-3 bg-gradient-to-r from-violet-600 to-fuchsia-500 text-white rounded-xl font-semibold flex items-center justify-center gap-2"
               >
                 <i className="fas fa-cog"></i>
                 Расширенные настройки приватности
