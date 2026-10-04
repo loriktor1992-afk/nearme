@@ -111,14 +111,14 @@ exports.saveTelegramChatId = functions.https.onRequest(async (req, res) => {
     }
 
     const decoded = await admin.auth().verifyIdToken(idToken);
-    const chatId = req.body?.chatId;
-    if (chatId === undefined || chatId === null || String(chatId).length > 64) {
-      res.status(400).json({ error: 'invalid_chat_id' });
+    const telegramId = decoded.telegramId;
+    if (!telegramId) {
+      res.status(403).json({ error: 'verified_telegram_session_required' });
       return;
     }
 
-    // The authenticated UID is authoritative; callers cannot write another user's chat ID.
-    await admin.database().ref(`privateUsers/${decoded.uid}/telegramChatId`).set(String(chatId));
+    // chat_id for the user's private bot chat is derived from the verified Telegram identity.
+    await admin.database().ref(`privateUsers/${decoded.uid}/telegramChatId`).set(String(telegramId));
     res.status(200).json({ ok: true });
   } catch (error) {
     console.error('Failed to save Telegram chat ID', error);
