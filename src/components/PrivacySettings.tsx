@@ -12,6 +12,7 @@ export default function PrivacySettings() {
   const [allowMessages, setAllowMessages] = useState(currentUser?.privacySettings?.allowMessages ?? true);
   const [showDistance, setShowDistance] = useState(currentUser?.privacySettings?.showDistance ?? true);
   const [showLastSeen, setShowLastSeen] = useState(currentUser?.privacySettings?.showLastSeen ?? true);
+  const [shareExactLocation, setShareExactLocation] = useState(currentUser?.privacySettings?.shareExactLocation ?? false);
   const [blockedUsers, setBlockedUsers] = useState<string[]>(currentUser?.privacySettings?.blockedUsers || []);
 
   if (!currentUser) return null;
@@ -26,6 +27,7 @@ export default function PrivacySettings() {
         allowMessages,
         showDistance,
         showLastSeen,
+        shareExactLocation,
         blockedUsers,
       },
     });
@@ -133,6 +135,34 @@ export default function PrivacySettings() {
                 ></div>
               </button>
             </div>
+          </div>
+
+          {/* Точная геопозиция */}
+          <div className="bg-white dark:bg-gray-700 rounded-xl p-4">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <div className="font-bold text-gray-800 dark:text-white">Показывать точное местоположение</div>
+                <div className="text-sm text-gray-600 dark:text-gray-400">
+                  Выключено по умолчанию. При включении другие пользователи смогут видеть вашу точную позицию на карте.
+                </div>
+              </div>
+              <button
+                onClick={() => setShareExactLocation(!shareExactLocation)}
+                className={`w-14 h-8 shrink-0 rounded-full transition-colors ${
+                  shareExactLocation ? 'bg-red-500' : 'bg-gray-300 dark:bg-gray-600'
+                }`}
+                aria-pressed={shareExactLocation}
+              >
+                <div className={`w-6 h-6 bg-white rounded-full transition-transform ${
+                  shareExactLocation ? 'translate-x-7' : 'translate-x-1'
+                }`}></div>
+              </button>
+            </div>
+            {shareExactLocation && (
+              <div className="mt-3 p-3 rounded-lg bg-red-50 dark:bg-red-950/30 text-sm text-red-700 dark:text-red-300">
+                Точная геопозиция включена. Отключите эту настройку, чтобы снова показывать только приблизительное местоположение.
+              </div>
+            )}
           </div>
 
           {/* Радиус видимости */}
