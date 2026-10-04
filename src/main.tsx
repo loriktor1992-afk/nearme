@@ -2,7 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import "./index.css";
 import App from "./App.tsx";
-import { signInWithTelegram } from "./auth";
+import { migrateLegacyProfileIfNeeded, signInWithTelegram } from "./auth";
 
 // Инициализация Telegram Web App
 declare global {
@@ -25,7 +25,8 @@ if (window.Telegram?.WebApp) {
 async function bootstrap() {
   try {
     // In Telegram, establish a server-verified Firebase session before the app touches protected data.
-    await signInWithTelegram();
+    const session = await signInWithTelegram();
+    if (session) await migrateLegacyProfileIfNeeded(session);
   } catch (error) {
     console.error('Telegram/Firebase authentication failed', error);
   }
