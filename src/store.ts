@@ -1077,42 +1077,40 @@ export const useStore = create<AppState>((set, get) => ({
   },
 }));
 
-// Restore session
-const storedRegistered = localStorage.getItem('nearme_registered');
-const storedUser = localStorage.getItem('nearme_user');
+// Restore the local UI profile only when it belongs to the verified Firebase session.
+// Firebase Auth persistence is authoritative; localStorage is never an identity credential.
+auth.onAuthStateChanged((firebaseUser) => {
+  const storedRegistered = localStorage.getItem('nearme_registered');
+  const storedUser = localStorage.getItem('nearme_user');
+  if (!firebaseUser || storedRegistered !== 'true' || !storedUser) return;
 
-if (storedRegistered === 'true' && storedUser) {
   try {
-    const user = JSON.parse(storedUser) as User;
-    const userRef = ref(db, `users/${user.id}`);
-    
-    // Загружаем актуальные данные из Firebase (включая фото)
-    onValue(userRef, (snapshot) => {
-      const firebaseUser = snapshot.val();
-      if (firebaseUser) {
-        const updatedUser = { ...user, ...firebaseUser, isOnline: true, lastSeen: Date.now() };
-        fbSet(userRef, updatedUser);
-        useStore.setState({ currentUser: updatedUser });
-        localStorage.setItem('nearme_user', JSON.stringify(updatedUser));
-      }
-    }, { onlyOnce: true });
-    
-    onDisconnect(userRef).update({
-      isOnline: false,
-      lastSeen: Date.now(),
-    });
+    const cachedUser = JSON.parse(storedUser) as User;
+    if (cachedUser.id !== firebaseUser.uid) {
+      localStorage.removeItem('nearme_registered');
+      localStorage.removeItem('nearme_user');
+      return;
+    }
 
-    useStore.setState({ isRegistered: true });
-    
-    setTimeout(() => {
+    const userRef = ref(db, `users/${firebaseUser.uid}`);
+    onValue(userRef, (snapshot) => {
+      const firebaseProfile = snapshot.val();
+      if (!firebaseProfile) return;
+
+      const updatedUser = { ...cachedUser, ...firebaseProfile, id: firebaseUser.uid, isOnline: true, lastSeen: Date.now() };
+      update(userRef, { isOnline: true, lastSeen: updatedUser.lastSeen });
+      useStore.setState({ currentUser: updatedUser, isRegistered: true });
+      localStorage.setItem('nearme_user', JSON.stringify(updatedUser));
+
+      onDisconnect(userRef).update({ isOnline: false, lastSeen: Date.now() });
       useStore.getState().listenForUsers();
       useStore.getState().listenForMessages();
       useStore.getState().listenForDistricts();
       useStore.getState().listenForInvites();
       useStore.getState().startLocationTracking();
-    }, 100);
-  } catch (e) {
+    }, { onlyOnce: true });
+  } catch {
     localStorage.removeItem('nearme_registered');
     localStorage.removeItem('nearme_user');
   }
-}
+});
