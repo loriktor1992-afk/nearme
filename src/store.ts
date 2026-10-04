@@ -157,7 +157,7 @@ interface AppState {
   viewStory: (userId: string, storyId: string) => void;
   setFilters: (filters: Partial<Filters>) => void;
   resetFilters: () => void;
-  sendMessage: (text: string) => void;
+  sendMessage: (text: string) => Promise<void>;
   updateLocation: (lat: number, lng: number) => void;
   startLocationTracking: () => void;
   listenForUsers: () => void;
@@ -896,34 +896,47 @@ export const useStore = create<AppState>((set, get) => ({
     });
   },
 
-  sendMessage: (text) => {
+  sendMessage: async (text) => {
     const { currentUser, selectedUser } = get();
-    if (!currentUser || !selectedUser || !text.trim()) return;
+    const trimmed = text.trim();
+    if (!currentUser || !selectedUser || !trimmed) return;
 
-    const conversationId = conversationIdFor(currentUser.id, selectedUser.id);
-    const messagesRef = ref(db, `conversations/${conversationId}/messages`);
-    const newMessageRef = push(messagesRef);
+    const endpoint = import.meta.env.VITE_CREATE_CONVERSATION_URL;
+    const firebaseUser = auth.currentUser;
+    if (!endpoint || !firebaseUser) {
+      throw new Error('Conversation service is not configured');
+    }
 
-    const messageId = newMessageRef.key;
-    if (!messageId) return;
-
-    // One atomic write creates membership, indexes and the first message together.
-    update(ref(db), {
-      [`conversationMembers/${conversationId}/${currentUser.id}`]: true,
-      [`conversationMembers/${conversationId}/${selectedUser.id}`]: true,
-      [`userConversations/${currentUser.id}/${conversationId}`]: true,
-      [`userConversations/${selectedUser.id}/${conversationId}`]: true,
-      [`conversations/${conversationId}/messages/${messageId}`]: {
-        fromId: currentUser.id,
-        toId: selectedUser.id,
-        fromName: currentUser.name,
-        fromAvatar: currentUser.avatar,
-        fromPhotoUrl: currentUser.photoUrl || '',
-        text: text.trim(),
-        timestamp: Date.now(),
-        read: false,
-        reactions: {},
+    const idToken = await firebaseUser.getIdToken();
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${idToken}`,
       },
+      body: JSON.stringify({ targetUid: selectedUser.id }),
+    });
+    if (!response.ok) throw new Error(`Conversation creation failed: ${response.status}`);
+
+    const payload = await response.json() as { conversationId?: string };
+    const expectedConversationId = conversationIdFor(currentUser.id, selectedUser.id);
+    if (payload.conversationId !== expectedConversationId) {
+      throw new Error('Conversation service returned an invalid conversation');
+    }
+
+    const newMessageRef = push(ref(db, `conversations/${expectedConversationId}/messages`));
+    if (!newMessageRef.key) return;
+
+    await fbSet(newMessageRef, {
+      fromId: currentUser.id,
+      toId: selectedUser.id,
+      fromName: currentUser.name,
+      fromAvatar: currentUser.avatar,
+      fromPhotoUrl: currentUser.photoUrl || '',
+      text: trimmed,
+      timestamp: Date.now(),
+      read: false,
+      reactions: {},
     });
   },
 
