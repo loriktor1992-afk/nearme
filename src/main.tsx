@@ -51,7 +51,11 @@ async function bootstrap() {
     root.render(<App />);
   } catch (error) {
     console.error('Telegram/Firebase authentication failed', error);
-    renderAuthError('Не удалось подтвердить Telegram-сессию. Нажмите «Повторить».');
+    const code = typeof error === 'object' && error !== null && 'code' in error
+      ? String((error as { code?: unknown }).code || '')
+      : '';
+    const detail = code ? ` Код: ${code}.` : '';
+    renderAuthError(`Не удалось подтвердить Telegram-сессию.${detail} Нажмите «Повторить».`);
   }
 }
 
