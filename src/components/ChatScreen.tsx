@@ -1,65 +1,67 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useStore } from '../store';
 import { formatTime } from '../utils/helpers';
 
 const REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🔥'];
 
 export default function ChatScreen() {
-  const { 
-    selectedUser, 
-    currentUser, 
-    messages, 
-    sendMessage, 
+  const {
+    selectedUser,
+    currentUser,
+    messages,
+    sendMessage,
     setShowChat,
     setSelectedUser,
     typingUsers,
     setTyping,
     addReaction,
     markAsRead,
-    deleteChat
+    deleteChat,
   } = useStore();
-  
+
   const [text, setText] = useState('');
   const [showReactions, setShowReactions] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    
-    // Помечаем сообщения как прочитанные
+
     if (currentUser && selectedUser) {
-      messages.forEach(msg => {
-        if (msg.fromId === selectedUser.id && msg.toId === currentUser.id && !msg.read) {
-          markAsRead(msg.id);
+      messages.forEach(message => {
+        if (message.fromId === selectedUser.id && message.toId === currentUser.id && !message.read) {
+          markAsRead(message.id);
         }
       });
     }
-  }, [messages]);
+  }, [messages, currentUser, selectedUser, markAsRead]);
 
   if (!selectedUser || !currentUser) return null;
 
-  // Фильтруем сообщения для текущего собеседника
-  const chatMsgs = messages.filter(m => 
-    (m.fromId === currentUser.id && m.toId === selectedUser.id) ||
-    (m.fromId === selectedUser.id && m.toId === currentUser.id)
+  const chatMsgs = messages.filter(message =>
+    (message.fromId === currentUser.id && message.toId === selectedUser.id) ||
+    (message.fromId === selectedUser.id && message.toId === currentUser.id)
   );
 
-  const isTyping = typingUsers[selectedUser.id] && 
-    Date.now() - typingUsers[selectedUser.id] < 3000;
+  const isTyping = Boolean(
+    typingUsers[selectedUser.id] &&
+    Date.now() - typingUsers[selectedUser.id] < 3000
+  );
 
-  const handleSend = () => {
-    if (!text.trim()) return;
-    sendMessage(text.trim());
-    setText('');
-  };
+  const isOnline = Date.now() - selectedUser.lastSeen < 5 * 60 * 1000;
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setText(e.target.value);
-    
-    // Отправляем статус "печатает"
-    if (currentUser) {
-      setTyping(currentUser.id);
+  const handleSend = async (value = text) => {
+    const trimmed = value.trim();
+    if (!trimmed || sending) return;
+
+    setSending(true);
+    try {
+      await sendMessage(trimmed);
+      setText('');
+    } catch (error) {
+      console.error('Message send failed', error);
+    } finally {
+      setSending(false);
     }
   };
 
@@ -68,225 +70,227 @@ export default function ChatScreen() {
     setShowReactions(null);
   };
 
-  const quickReplies = ['Привет! 👋', 'Как дела?', 'Давай встретимся! ☕', 'Отлично! 😊'];
+  const quickReplies = ['Привет 👋', 'Как твой день?', 'Пойдём на кофе? ☕'];
 
   return (
-    <div className="w-full h-full flex flex-col bg-gray-50 dark:bg-gray-900">
-      {/* Header */}
-      <div className="bg-white dark:bg-gray-800 shadow-sm px-4 py-3 flex items-center gap-3">
-        <button
-          onClick={() => {
-            setSelectedUser(null);
-            setShowChat(false);
-          }}
-          className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 active:scale-95 transition-transform"
-          aria-label="Вернуться к карте"
-        >
-          <i className="fas fa-arrow-left text-gray-600 dark:text-gray-300"></i>
-        </button>
-        <div className="flex items-center gap-3 flex-1">
-          <div className="relative">
-            {selectedUser.photoUrl ? (
-              <img src={selectedUser.photoUrl} alt="" className="w-10 h-10 rounded-full object-cover" />
-            ) : (
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-400 to-purple-500 flex items-center justify-center text-lg">
-                {selectedUser.avatar}
-              </div>
-            )}
-            <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-white"></div>
+    <div className="flex h-full w-full flex-col overflow-hidden bg-slate-50 dark:bg-slate-950">
+      <header className="z-20 border-b border-slate-200/70 bg-white/90 px-3 pb-3 pt-[max(10px,env(safe-area-inset-top))] backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/90">
+        <div className="mx-auto flex max-w-2xl items-center gap-3">
+          <button
+            onClick={() => {
+              setSelectedUser(null);
+              setShowChat(false);
+            }}
+            className="nearme-icon-btn shrink-0"
+            aria-label="Назад"
+          >
+            <i className="fas fa-arrow-left" />
+          </button>
+
+          <div className="relative h-11 w-11 shrink-0">
+            <div className="h-full w-full overflow-hidden rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500">
+              {selectedUser.photoUrl ? (
+                <img src={selectedUser.photoUrl} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-xl">{selectedUser.avatar}</div>
+              )}
+            </div>
+            <span className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white dark:border-slate-950 ${isOnline ? 'bg-emerald-500' : 'bg-slate-400'}`} />
           </div>
-          <div>
-            <div className="font-semibold text-gray-800 dark:text-white text-sm">
+
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-[15px] font-black tracking-tight text-slate-950 dark:text-white">
               {selectedUser.name}, {selectedUser.age}
             </div>
-            <div className="text-xs text-green-600">онлайн</div>
-          </div>
-        </div>
-        <button
-          onClick={() => {
-            if (confirm(`Удалить чат с ${selectedUser.name}? Все сообщения будут удалены.`)) {
-              deleteChat(selectedUser.id).then(() => {
-                setShowChat(false);
-                setSelectedUser(null);
-              });
-            }
-          }}
-          className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-red-100 dark:hover:bg-red-900/20 text-red-500 transition-colors"
-        >
-          <i className="fas fa-trash text-lg"></i>
-        </button>
-      </div>
-
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
-        {chatMsgs.length === 0 && (
-          <div className="text-center py-12">
-            <div className="text-5xl mb-3">{selectedUser.avatar}</div>
-            <p className="text-gray-500 text-sm">Начните общение с {selectedUser.name}!</p>
-            <p className="text-gray-400 text-xs mt-1">Напишите первое сообщение</p>
-            
-            {/* Quick replies */}
-            <div className="flex flex-wrap gap-2 justify-center mt-4">
-              {quickReplies.map((reply, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => {
-                    setText(reply);
-                    setTimeout(handleSend, 100);
-                  }}
-                  className="px-4 py-2 bg-white dark:bg-gray-800 rounded-full text-sm text-gray-700 dark:text-gray-300 shadow-sm hover:shadow-md transition-shadow"
-                >
-                  {reply}
-                </button>
-              ))}
+            <div className={`mt-0.5 text-[11px] font-semibold ${isTyping ? 'text-violet-600 dark:text-violet-400' : isOnline ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}`}>
+              {isTyping ? 'печатает…' : isOnline ? 'сейчас онлайн' : 'не в сети'}
             </div>
           </div>
-        )}
-        
-        {chatMsgs.map(msg => {
-          const isMe = msg.fromId === currentUser.id;
-          const reactions = msg.reactions || {};
-          const hasReactions = Object.keys(reactions).length > 0;
-          
-          return (
-            <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-              <div className="relative max-w-[75%]">
-                <div
-                  className={`px-4 py-2.5 rounded-2xl ${
-                    isMe
-                      ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-br-md'
-                      : 'bg-white dark:bg-gray-700 text-gray-800 dark:text-white shadow-sm rounded-bl-md'
-                  }`}
-                  onDoubleClick={() => !isMe && handleReaction(msg.id, '❤️')}
-                >
-                  <p className="text-sm leading-relaxed">{msg.text}</p>
-                  <div className={`flex items-center gap-1 justify-end mt-1`}>
-                    <span className={`text-[10px] ${isMe ? 'text-white/70' : 'text-gray-400'}`}>
-                      {formatTime(msg.timestamp)}
-                    </span>
-                    {isMe && (
-                      <i className={`fas fa-check ${msg.read ? 'fa-check-double text-blue-300' : 'text-white/50'} text-[10px]`}></i>
-                    )}
-                  </div>
-                </div>
 
-                {/* Reactions */}
-                {hasReactions && (
-                  <div className={`flex gap-1 mt-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
-                    {Object.entries(reactions).map(([emoji, users]) => {
-                      if (users.length === 0) return null;
-                      const isMyReaction = users.includes(currentUser.id);
-                      return (
+          <button
+            onClick={() => {
+              if (confirm(`Скрыть чат с ${selectedUser.name}?`)) {
+                void deleteChat(selectedUser.id).then(() => {
+                  setShowChat(false);
+                  setSelectedUser(null);
+                });
+              }
+            }}
+            className="nearme-icon-btn shrink-0 text-rose-500"
+            aria-label="Удалить чат"
+          >
+            <i className="fas fa-trash-alt" />
+          </button>
+        </div>
+      </header>
+
+      <main className="flex-1 overflow-y-auto px-3 py-5">
+        <div className="mx-auto flex max-w-2xl flex-col gap-2.5">
+          {chatMsgs.length === 0 && (
+            <div className="mx-auto flex max-w-sm flex-col items-center px-5 py-12 text-center">
+              <div className="relative h-24 w-24 overflow-hidden rounded-[30px] bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-[0_18px_40px_rgba(124,58,237,.25)]">
+                {selectedUser.photoUrl ? (
+                  <img src={selectedUser.photoUrl} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-5xl">{selectedUser.avatar}</div>
+                )}
+              </div>
+              <h2 className="mt-5 text-2xl font-black tracking-tight text-slate-950 dark:text-white">
+                Напиши {selectedUser.name}
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
+                Хороший диалог начинается с простого сообщения.
+              </p>
+              <div className="mt-5 flex flex-wrap justify-center gap-2">
+                {quickReplies.map(reply => (
+                  <button
+                    key={reply}
+                    onClick={() => void handleSend(reply)}
+                    className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm active:scale-95 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
+                  >
+                    {reply}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {chatMsgs.map(message => {
+            const isMe = message.fromId === currentUser.id;
+            const reactions = message.reactions || {};
+
+            return (
+              <div key={message.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                <div className="group relative max-w-[84%] sm:max-w-[72%]">
+                  <button
+                    onClick={() => setShowReactions(showReactions === message.id ? null : message.id)}
+                    className={`absolute top-1/2 z-10 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-white text-[11px] text-slate-500 opacity-70 shadow-md transition sm:opacity-0 sm:group-hover:opacity-100 dark:bg-slate-800 ${isMe ? '-left-9' : '-right-9'}`}
+                  >
+                    <i className="far fa-smile" />
+                  </button>
+
+                  <div
+                    className={`rounded-[22px] px-4 py-2.5 shadow-sm ${isMe
+                      ? 'rounded-br-[7px] bg-gradient-to-br from-violet-600 to-fuchsia-500 text-white shadow-violet-500/10'
+                      : 'rounded-bl-[7px] border border-slate-100 bg-white text-slate-800 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100'}`}
+                    onDoubleClick={() => !isMe && handleReaction(message.id, '❤️')}
+                  >
+                    <p className="whitespace-pre-wrap break-words text-[15px] leading-[1.45]">{message.text}</p>
+                    <div className={`mt-1 flex items-center justify-end gap-1 text-[10px] ${isMe ? 'text-white/65' : 'text-slate-400'}`}>
+                      <span>{formatTime(message.timestamp)}</span>
+                      {isMe && (
+                        <i className={`fas ${message.read ? 'fa-check-double text-sky-200' : 'fa-check text-white/55'}`} />
+                      )}
+                    </div>
+                  </div>
+
+                  {Object.keys(reactions).length > 0 && (
+                    <div className={`mt-1 flex flex-wrap gap-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
+                      {Object.entries(reactions).map(([emoji, rawUsers]) => {
+                        const users = Array.isArray(rawUsers)
+                          ? rawUsers
+                          : Object.keys((rawUsers || {}) as Record<string, boolean>).filter(uid => (rawUsers as unknown as Record<string, boolean>)[uid]);
+                        if (!users.length) return null;
+                        return (
+                          <button
+                            key={emoji}
+                            onClick={() => handleReaction(message.id, emoji)}
+                            className={`rounded-full border px-2 py-0.5 text-xs shadow-sm ${users.includes(currentUser.id)
+                              ? 'border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-500/30 dark:bg-violet-500/10 dark:text-violet-300'
+                              : 'border-slate-200 bg-white text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300'}`}
+                          >
+                            {emoji}{users.length > 1 ? ` ${users.length}` : ''}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {showReactions === message.id && (
+                    <div className={`absolute top-full z-30 mt-1 flex gap-0.5 rounded-full border border-slate-100 bg-white p-1.5 shadow-xl dark:border-slate-800 dark:bg-slate-900 ${isMe ? 'right-0' : 'left-0'}`}>
+                      {REACTIONS.map(emoji => (
                         <button
                           key={emoji}
-                          onClick={() => handleReaction(msg.id, emoji)}
-                          className={`px-2 py-0.5 rounded-full text-xs ${
-                            isMyReaction 
-                              ? 'bg-purple-100 dark:bg-purple-900/30 border border-purple-300' 
-                              : 'bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600'
-                          }`}
+                          onClick={() => handleReaction(message.id, emoji)}
+                          className="flex h-8 w-8 items-center justify-center rounded-full text-base active:scale-90"
                         >
-                          {emoji} {users.length > 1 && users.length}
+                          {emoji}
                         </button>
-                      );
-                    })}
-                  </div>
-                )}
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
 
-                {/* Reaction button */}
-                <button
-                  onClick={() => setShowReactions(showReactions === msg.id ? null : msg.id)}
-                  className={`absolute top-1/2 -translate-y-1/2 ${
-                    isMe ? '-left-8' : '-right-8'
-                  } w-6 h-6 rounded-full bg-white dark:bg-gray-700 shadow-sm flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity`}
-                >
-                  <span className="text-xs">😊</span>
-                </button>
-
-                {/* Reactions picker */}
-                {showReactions === msg.id && (
-                  <div className={`absolute top-full mt-1 ${isMe ? 'right-0' : 'left-0'} bg-white dark:bg-gray-800 rounded-full shadow-lg px-2 py-1 flex gap-1 z-10`}>
-                    {REACTIONS.map(emoji => (
-                      <button
-                        key={emoji}
-                        onClick={() => handleReaction(msg.id, emoji)}
-                        className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
-                      >
-                        {emoji}
-                      </button>
-                    ))}
-                  </div>
-                )}
+          {isTyping && (
+            <div className="flex justify-start">
+              <div className="flex items-center gap-1 rounded-[20px] rounded-bl-[7px] border border-slate-100 bg-white px-4 py-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                {[0, 150, 300].map(delay => (
+                  <span
+                    key={delay}
+                    className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400"
+                    style={{ animationDelay: `${delay}ms` }}
+                  />
+                ))}
               </div>
             </div>
-          );
-        })}
+          )}
 
-        {/* Typing indicator */}
-        {isTyping && (
-          <div className="flex justify-start">
-            <div className="bg-white dark:bg-gray-700 rounded-2xl rounded-bl-md px-4 py-3 shadow-sm">
-              <div className="flex gap-1">
-                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-              </div>
-            </div>
+          <div ref={messagesEndRef} />
+        </div>
+      </main>
+
+      {chatMsgs.length > 0 && chatMsgs.length < 4 && (
+        <div className="border-t border-slate-100 bg-white/75 px-3 py-2 backdrop-blur dark:border-slate-900 dark:bg-slate-950/75">
+          <div className="mx-auto flex max-w-2xl gap-2 overflow-x-auto">
+            {quickReplies.map(reply => (
+              <button
+                key={reply}
+                onClick={() => void handleSend(reply)}
+                className="whitespace-nowrap rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600 active:scale-95 dark:bg-slate-900 dark:text-slate-300"
+              >
+                {reply}
+              </button>
+            ))}
           </div>
-        )}
-
-        <div ref={messagesEndRef} />
-      </div>
-
-      {/* Quick replies (when there are messages) */}
-      {chatMsgs.length > 0 && chatMsgs.length < 3 && (
-        <div className="px-4 py-2 flex gap-2 overflow-x-auto">
-          {quickReplies.slice(0, 3).map((reply, idx) => (
-            <button
-              key={idx}
-              onClick={() => {
-                setText(reply);
-                setTimeout(handleSend, 100);
-              }}
-              className="px-3 py-1.5 bg-white dark:bg-gray-800 rounded-full text-xs text-gray-700 dark:text-gray-300 shadow-sm whitespace-nowrap"
-            >
-              {reply}
-            </button>
-          ))}
         </div>
       )}
 
-      {/* Input */}
-      <div className="bg-white dark:bg-gray-800 border-t dark:border-gray-700 px-4 py-3">
-        <div className="flex items-end gap-2">
-          <div className="flex-1 bg-gray-100 dark:bg-gray-700 rounded-2xl px-4 py-2 flex items-end">
+      <footer className="border-t border-slate-200/70 bg-white/95 px-3 pb-[max(10px,env(safe-area-inset-bottom))] pt-2.5 backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/95">
+        <div className="mx-auto flex max-w-2xl items-end gap-2">
+          <div className="flex min-h-11 flex-1 items-end rounded-[22px] bg-slate-100 px-4 py-2 dark:bg-slate-900">
             <textarea
               value={text}
-              onChange={handleInputChange}
-              onKeyDown={e => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSend();
+              onChange={event => {
+                setText(event.target.value);
+                setTyping(currentUser.id);
+              }}
+              onKeyDown={event => {
+                if (event.key === 'Enter' && !event.shiftKey) {
+                  event.preventDefault();
+                  void handleSend();
                 }
               }}
-              placeholder="Сообщение..."
-              className="flex-1 bg-transparent resize-none outline-none text-sm dark:text-white max-h-20 py-1 w-full"
+              placeholder="Сообщение…"
+              className="max-h-24 min-h-7 w-full resize-none bg-transparent py-1 text-[15px] text-slate-900 outline-none placeholder:text-slate-400 dark:text-white"
               rows={1}
             />
           </div>
+
           <button
-            onClick={handleSend}
-            disabled={!text.trim()}
-            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
-              text.trim()
-                ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg active:scale-90'
-                : 'bg-gray-200 dark:bg-gray-700 text-gray-400'
-            }`}
+            onClick={() => void handleSend()}
+            disabled={!text.trim() || sending}
+            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] transition active:scale-90 ${text.trim() && !sending
+              ? 'bg-gradient-to-br from-violet-600 to-fuchsia-500 text-white shadow-[0_10px_24px_rgba(124,58,237,.28)]'
+              : 'bg-slate-100 text-slate-300 dark:bg-slate-900 dark:text-slate-600'}`}
+            aria-label="Отправить"
           >
-            <i className="fas fa-paper-plane text-sm"></i>
+            <i className={`fas ${sending ? 'fa-spinner fa-spin' : 'fa-arrow-up'}`} />
           </button>
         </div>
-      </div>
+      </footer>
     </div>
   );
 }

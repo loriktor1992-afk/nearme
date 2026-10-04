@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useStore } from '../store';
 import { formatTime } from '../utils/helpers';
 
@@ -8,190 +8,175 @@ export default function ChatList() {
 
   if (!currentUser) return null;
 
-  // Группируем сообщения по собеседникам
   const chatPartners = useMemo(() => {
     const partners = new Map<string, { lastMessage: string; timestamp: number; unread: number }>();
 
-    messages.forEach(msg => {
-      const partnerId = msg.fromId === currentUser.id ? msg.toId : msg.fromId;
+    messages.forEach(message => {
+      const partnerId = message.fromId === currentUser.id ? message.toId : message.fromId;
       const existing = partners.get(partnerId);
-      
-      if (!existing || msg.timestamp > existing.timestamp) {
+
+      if (!existing || message.timestamp > existing.timestamp) {
         partners.set(partnerId, {
-          lastMessage: msg.text,
-          timestamp: msg.timestamp,
-          unread: 0,
+          lastMessage: message.text,
+          timestamp: message.timestamp,
+          unread: existing?.unread || 0,
         });
       }
 
-      // Подсчитываем непрочитанные
-      if (msg.toId === currentUser.id && !msg.read) {
+      if (message.toId === currentUser.id && !message.read) {
         const current = partners.get(partnerId);
-        if (current) {
-          current.unread++;
-        }
+        if (current) current.unread += 1;
       }
     });
 
     return partners;
   }, [messages, currentUser.id]);
 
-  // Фильтруем и сортируем чаты
   const sortedChats = useMemo(() => {
-    let chats = Array.from(chatPartners.entries())
+    const query = searchQuery.trim().toLowerCase();
+    return Array.from(chatPartners.entries())
+      .filter(([partnerId]) => {
+        if (!query) return true;
+        const partner = allUsers.find(user => user.id === partnerId);
+        return partner?.name.toLowerCase().includes(query);
+      })
       .sort((a, b) => b[1].timestamp - a[1].timestamp);
-
-    // Фильтруем по поисковому запросу
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      chats = chats.filter(([partnerId]) => {
-        const partner = allUsers.find(u => u.id === partnerId);
-        return partner && partner.name.toLowerCase().includes(query);
-      });
-    }
-
-    return chats;
   }, [chatPartners, searchQuery, allUsers]);
 
-  // Получаем информацию о собеседнике (даже если он оффлайн)
   const getPartnerInfo = (partnerId: string) => {
-    // Сначала ищем в allUsers
-    const user = allUsers.find(u => u.id === partnerId);
+    const user = allUsers.find(candidate => candidate.id === partnerId);
     if (user) return user;
-    
-    // Если не нашли в allUsers, получаем информацию из последнего сообщения
-    const lastMessage = messages.find(m => 
-      (m.fromId === partnerId && m.toId === currentUser.id) ||
-      (m.fromId === currentUser.id && m.toId === partnerId)
+
+    const fallbackMessage = [...messages].reverse().find(message =>
+      (message.fromId === partnerId && message.toId === currentUser.id) ||
+      (message.fromId === currentUser.id && message.toId === partnerId)
     );
-    
-    if (lastMessage) {
-      // Используем информацию из сообщения
-      const isFromPartner = lastMessage.fromId === partnerId;
+
+    if (!fallbackMessage) {
       return {
         id: partnerId,
-        name: isFromPartner ? (lastMessage.fromName || 'Пользователь') : (currentUser.name || 'Вы'),
-        avatar: isFromPartner ? (lastMessage.fromAvatar || '👤') : (currentUser.avatar || '👤'),
-        photoUrl: isFromPartner ? (lastMessage.fromPhotoUrl || '') : (currentUser.photoUrl || ''),
+        name: 'Пользователь',
+        avatar: '👤',
+        photoUrl: '',
         isOnline: false,
         lastSeen: 0,
       };
     }
-    
-    // Если вообще ничего не нашли, возвращаем базовую информацию
+
+    const fromPartner = fallbackMessage.fromId === partnerId;
     return {
       id: partnerId,
-      name: 'Пользователь',
-      avatar: '👤',
-      photoUrl: '',
+      name: fromPartner ? (fallbackMessage.fromName || 'Пользователь') : 'Пользователь',
+      avatar: fromPartner ? (fallbackMessage.fromAvatar || '👤') : '👤',
+      photoUrl: fromPartner ? (fallbackMessage.fromPhotoUrl || '') : '',
       isOnline: false,
       lastSeen: 0,
     };
   };
 
   return (
-    <div className="fixed inset-0 z-[2500] bg-gray-50 dark:bg-gray-900 overflow-y-auto">
-      {/* Header */}
-      <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3 z-10">
-        <div className="flex items-center gap-3 mb-3">
-          <button
-            onClick={() => setShowChatList(false)}
-            className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
-          >
-            <i className="fas fa-arrow-left text-gray-600 dark:text-gray-300"></i>
-          </button>
-          <h2 className="text-xl font-bold text-gray-800 dark:text-white">Чаты</h2>
-        </div>
-        
-        {/* Поиск */}
-        <div className="relative">
-          <i className="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            placeholder="Поиск по имени..."
-            className="w-full pl-10 pr-4 py-2 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 outline-none focus:ring-2 focus:ring-purple-500"
-          />
-        </div>
-      </div>
+    <div className="fixed inset-0 z-[2500] overflow-y-auto bg-slate-50 dark:bg-slate-950">
+      <header className="sticky top-0 z-20 border-b border-slate-200/70 bg-white/90 px-4 pb-4 pt-[max(12px,env(safe-area-inset-top))] backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/90">
+        <div className="mx-auto max-w-2xl">
+          <div className="flex items-center gap-3">
+            <button onClick={() => setShowChatList(false)} className="nearme-icon-btn" aria-label="Назад">
+              <i className="fas fa-arrow-left" />
+            </button>
+            <div className="flex-1">
+              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-violet-500">NearMe</div>
+              <h1 className="text-2xl font-black tracking-tight text-slate-950 dark:text-white">Сообщения</h1>
+            </div>
+            <div className="rounded-full bg-violet-50 px-3 py-1.5 text-sm font-bold text-violet-700 dark:bg-violet-500/10 dark:text-violet-300">
+              {sortedChats.length}
+            </div>
+          </div>
 
-      <div className="p-4">
+          <div className="relative mt-4">
+            <i className="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-sm text-slate-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={event => setSearchQuery(event.target.value)}
+              placeholder="Поиск по чатам"
+              className="h-12 w-full rounded-2xl border border-slate-200 bg-slate-100 pl-11 pr-4 text-[15px] text-slate-900 outline-none transition focus:border-violet-300 focus:bg-white dark:border-slate-800 dark:bg-slate-900 dark:text-white dark:focus:border-violet-500/40"
+            />
+          </div>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-2xl px-3 py-4 sm:px-4">
         {sortedChats.length === 0 ? (
-          <div className="text-center py-12 text-gray-400">
-            <div className="text-5xl mb-3">💬</div>
-            <p>{searchQuery ? 'Ничего не найдено' : 'Пока нет чатов'}</p>
-            <p className="text-sm mt-1">
-              {searchQuery ? 'Попробуйте другой запрос' : 'Начни общение с кем-нибудь!'}
+          <div className="flex flex-col items-center py-20 text-center">
+            <div className="flex h-20 w-20 items-center justify-center rounded-[28px] bg-violet-50 text-3xl text-violet-500 dark:bg-violet-500/10">
+              <i className="fas fa-comment-dots" />
+            </div>
+            <h2 className="mt-5 text-xl font-black text-slate-950 dark:text-white">
+              {searchQuery ? 'Ничего не найдено' : 'Пока тихо'}
+            </h2>
+            <p className="mt-2 max-w-xs text-sm leading-6 text-slate-500 dark:text-slate-400">
+              {searchQuery ? 'Попробуй другое имя.' : 'Открой человека на карте и начни разговор.'}
             </p>
           </div>
         ) : (
           <div className="space-y-2">
             {sortedChats.map(([partnerId, chat]) => {
               const partner = getPartnerInfo(partnerId);
-              if (!partner) return null;
-
               const isOnline = Date.now() - (partner.lastSeen || 0) < 5 * 60 * 1000;
 
               return (
                 <div
                   key={partnerId}
-                  onClick={() => {
-                    setSelectedUser(partner as any);
-                    setShowChat(true);
-                  }}
-                  className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm cursor-pointer active:scale-98 transition-transform flex items-center gap-3"
+                  className="group flex items-center gap-3 rounded-[22px] border border-slate-100 bg-white p-3 shadow-sm transition active:scale-[0.99] dark:border-slate-800 dark:bg-slate-900"
                 >
-                  <div className="relative">
-                    {partner.photoUrl ? (
-                      <img src={partner.photoUrl} alt="" className="w-14 h-14 rounded-full object-cover" />
-                    ) : (
-                      <div className="w-14 h-14 rounded-full bg-gradient-to-br from-pink-400 to-purple-500 flex items-center justify-center text-2xl">
-                        {partner.avatar}
-                      </div>
-                    )}
-                    <div className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-white dark:border-gray-800 ${
-                      isOnline ? 'bg-green-500' : 'bg-gray-400'
-                    }`}></div>
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-1">
-                      <h3 className="font-bold text-gray-800 dark:text-white truncate">
-                        {partner.name}
-                      </h3>
-                      <span className="text-xs text-gray-400 ml-2">
-                        {formatTime(chat.timestamp)}
-                      </span>
-                    </div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
-                      {chat.lastMessage}
-                    </p>
-                  </div>
-
-                  {chat.unread > 0 && (
-                    <div className="bg-purple-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center">
-                      {chat.unread}
-                    </div>
-                  )}
-                  
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (confirm(`Удалить чат с ${partner.name}? Все сообщения будут удалены.`)) {
-                        deleteChat(partnerId);
-                      }
+                    onClick={() => {
+                      setSelectedUser(partner as any);
+                      setShowChat(true);
                     }}
-                    className="ml-2 w-8 h-8 flex items-center justify-center rounded-full hover:bg-red-100 dark:hover:bg-red-900/20 text-red-500 transition-colors"
+                    className="flex min-w-0 flex-1 items-center gap-3 text-left"
                   >
-                    <i className="fas fa-trash text-sm"></i>
+                    <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500">
+                      {partner.photoUrl ? (
+                        <img src={partner.photoUrl} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-2xl">{partner.avatar}</div>
+                      )}
+                      <span className={`absolute bottom-1 right-1 h-2.5 w-2.5 rounded-full border-2 border-white dark:border-slate-900 ${isOnline ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <div className="truncate font-black text-slate-950 dark:text-white">{partner.name}</div>
+                        <span className="ml-auto shrink-0 text-[11px] font-medium text-slate-400">{formatTime(chat.timestamp)}</span>
+                      </div>
+                      <div className="mt-1 flex items-center gap-2">
+                        <p className={`min-w-0 flex-1 truncate text-sm ${chat.unread > 0 ? 'font-semibold text-slate-800 dark:text-slate-200' : 'text-slate-500 dark:text-slate-400'}`}>
+                          {chat.lastMessage}
+                        </p>
+                        {chat.unread > 0 && (
+                          <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-violet-600 px-2 text-[11px] font-black text-white">
+                            {Math.min(chat.unread, 99)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      if (confirm(`Скрыть чат с ${partner.name}?`)) void deleteChat(partnerId);
+                    }}
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-slate-300 transition hover:bg-rose-50 hover:text-rose-500 dark:hover:bg-rose-500/10"
+                    aria-label="Удалить чат"
+                  >
+                    <i className="fas fa-trash-alt text-xs" />
                   </button>
                 </div>
               );
             })}
           </div>
         )}
-      </div>
+      </main>
     </div>
   );
 }
