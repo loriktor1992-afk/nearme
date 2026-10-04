@@ -24,7 +24,7 @@
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",
         "$conversationId": {
-          ".write": "auth != null && (auth.uid === $uid || root.child('conversationMembers').child($conversationId).child(auth.uid).val() === true)"
+          ".write": "auth != null && (auth.uid === $uid || root.child('conversationMembers').child($conversationId).child(auth.uid).val() === true || newData.root.child('conversationMembers').child($conversationId).child(auth.uid).val() === true)"
         }
       }
     },
@@ -32,7 +32,7 @@
       "$conversationId": {
         ".read": "auth != null && data.child(auth.uid).val() === true",
         "$uid": {
-          ".write": "auth != null && (auth.uid === $uid || data.parent().child(auth.uid).val() === true)"
+          ".write": "auth != null && (auth.uid === $uid || data.parent().child(auth.uid).val() === true || newData.parent().child(auth.uid).val() === true)"
         }
       }
     },
@@ -41,7 +41,7 @@
         ".read": "auth != null && root.child('conversationMembers').child($conversationId).child(auth.uid).val() === true",
         "messages": {
           "$messageId": {
-            ".write": "auth != null && root.child('conversationMembers').child($conversationId).child(auth.uid).val() === true && ((!data.exists() && newData.child('fromId').val() === auth.uid) || (data.exists() && (data.child('fromId').val() === auth.uid || data.child('toId').val() === auth.uid)))",
+            ".write": "auth != null && (root.child('conversationMembers').child($conversationId).child(auth.uid).val() === true || newData.root.child('conversationMembers').child($conversationId).child(auth.uid).val() === true) && ((!data.exists() && newData.child('fromId').val() === auth.uid) || (data.exists() && newData.child('fromId').val() === data.child('fromId').val() && newData.child('toId').val() === data.child('toId').val() && newData.child('text').val() === data.child('text').val() && newData.child('timestamp').val() === data.child('timestamp').val()))",
             ".validate": "!newData.exists() || (newData.hasChildren(['fromId','toId','text','timestamp']) && newData.child('text').isString() && newData.child('text').val().length > 0 && newData.child('text').val().length <= 4000 && newData.child('timestamp').isNumber())"
           }
         }
