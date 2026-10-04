@@ -4,6 +4,7 @@ import "./index.css";
 import App from "./App.tsx";
 import { migrateLegacyProfileIfNeeded, signInWithTelegram } from "./auth";
 import { tg } from "./telegram";
+import { restoreVerifiedSession } from "./store";
 
 // Инициализация Telegram Web App
 
@@ -43,7 +44,10 @@ async function bootstrap() {
       renderAuthError('Откройте приложение через Telegram.');
       return;
     }
-    if (session) await migrateLegacyProfileIfNeeded(session);
+    if (session) {
+      await migrateLegacyProfileIfNeeded(session);
+      await restoreVerifiedSession(session.uid);
+    }
     root.render(<App />);
   } catch (error) {
     console.error('Telegram/Firebase authentication failed', error);

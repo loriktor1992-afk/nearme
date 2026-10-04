@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { ref, set as fbSet, onValue, push, update, onDisconnect, Unsubscribe } from 'firebase/database';
+import { ref, set as fbSet, onValue, push, update, onDisconnect, Unsubscribe, get as fbGet } from 'firebase/database';
 import { db } from './firebase';
 import { auth } from './auth';
 import { backend } from './backend';
@@ -213,15 +213,20 @@ let matchesUnsubscribe: Unsubscribe | null = null;
 const conversationUnsubscribes = new Map<string, Unsubscribe>();
 
 const generateUserId = () => {
-  // Verified Telegram/Firebase users always use their authenticated UID.
+  // Production identity is always the verified Firebase UID.
   if (auth.currentUser?.uid) {
     localStorage.setItem('nearme_user_id', auth.currentUser.uid);
     return auth.currentUser.uid;
   }
 
-  // Legacy fallback is kept temporarily for browser development and migration.
+  // Local legacy IDs are allowed only in explicitly enabled browser development.
+  const allowLegacyDev = import.meta.env.DEV && import.meta.env.VITE_ALLOW_LEGACY_DEV_AUTH === 'true';
+  if (!allowLegacyDev) {
+    throw new Error('Verified Firebase session is required');
+  }
+
   const stored = localStorage.getItem('nearme_user_id');
-  if (stored) return stored;
+  if (stored?.startsWith('user_')) return stored;
   const id = 'user_' + Date.now() + '_' + Math.random().toString(36).slice(2, 11);
   localStorage.setItem('nearme_user_id', id);
   return id;
@@ -1147,69 +1152,61 @@ export const useStore = create<AppState>((set, get) => ({
   },
 }));
 
-// Restore the local UI profile only when it belongs to the verified Firebase session.
-// Firebase Auth persistence is authoritative; localStorage is never an identity credential.
-auth.onAuthStateChanged((firebaseUser) => {
-  const storedRegistered = localStorage.getItem('nearme_registered');
-  const storedUser = localStorage.getItem('nearme_user');
-  if (!firebaseUser || storedRegistered !== 'true' || !storedUser) return;
+export async function restoreVerifiedSession(firebaseUid: string): Promise<void> {
+  if (!firebaseUid || auth.currentUser?.uid !== firebaseUid) {
+    throw new Error('Verified Firebase session mismatch');
+  }
 
-  try {
-    const cachedUser = JSON.parse(storedUser) as User;
-    if (cachedUser.id !== firebaseUser.uid) {
-      localStorage.removeItem('nearme_registered');
-      localStorage.removeItem('nearme_user');
-      return;
-    }
+  const userRef = ref(db, `users/${firebaseUid}`);
+  const snapshot = await fbGet(userRef);
+  const firebaseProfile = snapshot.val();
 
-    const userRef = ref(db, `users/${firebaseUser.uid}`);
-    onValue(userRef, (snapshot) => {
-      const firebaseProfile = snapshot.val();
-      if (!firebaseProfile) return;
-
-      onValue(ref(db, `privateSettings/${firebaseUser.uid}/blockedUsers`), privateSnapshot => {
-        const privateBlocked = privateSnapshot.val();
-        const legacyBlocked = firebaseProfile.privacySettings?.blockedUsers;
-        const blockedUsers = Array.isArray(privateBlocked)
-          ? privateBlocked
-          : Array.isArray(legacyBlocked)
-            ? legacyBlocked
-            : [];
-
-        const now = Date.now();
-        const updatedUser = {
-          ...cachedUser,
-          ...firebaseProfile,
-          id: firebaseUser.uid,
-          isOnline: true,
-          lastSeen: now,
-          privacySettings: {
-            ...cachedUser.privacySettings,
-            ...firebaseProfile.privacySettings,
-            blockedUsers,
-          },
-        };
-        const presenceRef = ref(db, `presence/${firebaseUser.uid}`);
-        update(presenceRef, { isOnline: true, lastSeen: now });
-        useStore.setState({ currentUser: updatedUser, isRegistered: true });
-        localStorage.setItem('nearme_user', JSON.stringify(updatedUser));
-
-        if (Array.isArray(legacyBlocked)) {
-          fbSet(ref(db, `privateSettings/${firebaseUser.uid}/blockedUsers`), legacyBlocked);
-          fbSet(ref(db, `users/${firebaseUser.uid}/privacySettings/blockedUsers`), null);
-        }
-
-        onDisconnect(presenceRef).update({ isOnline: false, lastSeen: Date.now() });
-        useStore.getState().listenForUsers();
-        useStore.getState().listenForMessages();
-        useStore.getState().listenForMatches();
-        useStore.getState().listenForDistricts();
-        useStore.getState().listenForInvites();
-        useStore.getState().startLocationTracking();
-      }, { onlyOnce: true });
-    }, { onlyOnce: true });
-  } catch {
+  if (!firebaseProfile) {
     localStorage.removeItem('nearme_registered');
     localStorage.removeItem('nearme_user');
+    useStore.setState({ currentUser: null, isRegistered: false });
+    return;
   }
-});
+
+  const privateSnapshot = await fbGet(ref(db, `privateSettings/${firebaseUid}/blockedUsers`));
+  const privateBlocked = privateSnapshot.val();
+  const legacyBlocked = firebaseProfile.privacySettings?.blockedUsers;
+  const blockedUsers = Array.isArray(privateBlocked)
+    ? privateBlocked
+    : Array.isArray(legacyBlocked)
+      ? legacyBlocked
+      : [];
+
+  const now = Date.now();
+  const updatedUser: User = {
+    ...firebaseProfile,
+    id: firebaseUid,
+    isOnline: true,
+    lastSeen: now,
+    privacySettings: {
+      ...firebaseProfile.privacySettings,
+      blockedUsers,
+    },
+  };
+
+  const presenceRef = ref(db, `presence/${firebaseUid}`);
+  await update(presenceRef, { isOnline: true, lastSeen: now });
+  onDisconnect(presenceRef).update({ isOnline: false, lastSeen: Date.now() });
+
+  useStore.setState({ currentUser: updatedUser, isRegistered: true });
+  localStorage.setItem('nearme_registered', 'true');
+  localStorage.setItem('nearme_user_id', firebaseUid);
+  localStorage.setItem('nearme_user', JSON.stringify(updatedUser));
+
+  if (Array.isArray(legacyBlocked)) {
+    await fbSet(ref(db, `privateSettings/${firebaseUid}/blockedUsers`), legacyBlocked);
+    await fbSet(ref(db, `users/${firebaseUid}/privacySettings/blockedUsers`), null);
+  }
+
+  useStore.getState().listenForUsers();
+  useStore.getState().listenForMessages();
+  useStore.getState().listenForMatches();
+  useStore.getState().listenForDistricts();
+  useStore.getState().listenForInvites();
+  useStore.getState().startLocationTracking();
+}
