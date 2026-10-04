@@ -947,9 +947,15 @@ export const useStore = create<AppState>((set, get) => ({
     // Exact coordinates are owner-only. Public map gets deliberately coarse coordinates (~1 km grid).
     const exactLocationRef = ref(db, `privateLocations/${currentUser.id}`);
     update(exactLocationRef, { lat, lng, updatedAt: Date.now() });
-    const publicLat = Math.round(lat * 100) / 100;
-    const publicLng = Math.round(lng * 100) / 100;
-    update(ref(db, `users/${currentUser.id}`), { lat: publicLat, lng: publicLng, lastSeen: Date.now() });
+    const shareExactLocation = currentUser.privacySettings?.shareExactLocation === true;
+    const publicLat = shareExactLocation ? lat : Math.round(lat * 100) / 100;
+    const publicLng = shareExactLocation ? lng : Math.round(lng * 100) / 100;
+    update(ref(db, `users/${currentUser.id}`), {
+      lat: publicLat,
+      lng: publicLng,
+      locationPrecision: shareExactLocation ? 'exact' : 'coarse',
+      lastSeen: Date.now(),
+    });
     
     set({ 
       currentUser: { ...currentUser, lat, lng },
