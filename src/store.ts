@@ -106,6 +106,7 @@ interface AppState {
   invites: DistrictInvite[];
   selectedUser: User | null;
   messages: Message[];
+  matchIds: string[];
   showChat: boolean;
   showProfile: boolean;
   showFilters: boolean;
@@ -136,6 +137,7 @@ interface AppState {
   startLocationTracking: () => void;
   listenForUsers: () => void;
   listenForMessages: () => void;
+  listenForMatches: () => void;
   setTyping: (userId: string) => void;
   addReaction: (messageId: string, emoji: string) => void;
   markAsRead: (messageId: string) => void;
@@ -181,6 +183,7 @@ const conversationIdFor = (a: string, b: string) => [a, b].sort().join('__');
 let locationWatchId: number | null = null;
 let usersUnsubscribe: Unsubscribe | null = null;
 let messageIndexUnsubscribe: Unsubscribe | null = null;
+let matchesUnsubscribe: Unsubscribe | null = null;
 const conversationUnsubscribes = new Map<string, Unsubscribe>();
 
 const generateUserId = () => {
@@ -209,6 +212,7 @@ export const useStore = create<AppState>((set, get) => ({
   invites: [],
   selectedUser: null,
   messages: [],
+  matchIds: [],
   showChat: false,
   showProfile: false,
   showFilters: false,
@@ -254,6 +258,7 @@ export const useStore = create<AppState>((set, get) => ({
     
     get().listenForUsers();
     get().listenForMessages();
+    get().listenForMatches();
     get().listenForDistricts();
     get().listenForInvites();
     get().startLocationTracking();
@@ -569,9 +574,19 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   getMatches: () => {
-    // Match state is server-authoritative; this compatibility selector is intentionally empty
-    // until the dedicated matches listener is wired into store state.
-    return [];
+    const { matchIds, allUsers } = get();
+    const ids = new Set(matchIds);
+    return allUsers.filter(user => ids.has(user.id));
+  },
+
+  listenForMatches: () => {
+    const { currentUser } = get();
+    if (!currentUser) return;
+    if (matchesUnsubscribe) matchesUnsubscribe();
+    matchesUnsubscribe = onValue(ref(db, `matches/${currentUser.id}`), snapshot => {
+      const data = snapshot.val() || {};
+      set({ matchIds: Object.keys(data).filter(uid => data[uid] === true) });
+    }, error => logError(error, 'listenForMatches'));
   },
 
   getUnreadCount: () => {
@@ -1065,6 +1080,7 @@ auth.onAuthStateChanged((firebaseUser) => {
       onDisconnect(presenceRef).update({ isOnline: false, lastSeen: Date.now() });
       useStore.getState().listenForUsers();
       useStore.getState().listenForMessages();
+      useStore.getState().listenForMatches();
       useStore.getState().listenForDistricts();
       useStore.getState().listenForInvites();
       useStore.getState().startLocationTracking();
