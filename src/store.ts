@@ -608,15 +608,7 @@ export const useStore = create<AppState>((set, get) => ({
   viewProfile: (userId) => {
     const { currentUser } = get();
     if (!currentUser || userId === currentUser.id) return;
-
-    const userRef = ref(db, `users/${userId}/profileViews`);
-    onValue(userRef, (snapshot) => {
-      const views = snapshot.val() || [];
-      if (!views.includes(currentUser.id)) {
-        const newViews = [...views, currentUser.id];
-        fbSet(userRef, newViews);
-      }
-    }, { onlyOnce: true });
+    fbSet(ref(db, `profileViews/${userId}/${currentUser.id}`), Date.now());
   },
 
   getChatCount: () => {
