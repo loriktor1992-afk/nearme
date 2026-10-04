@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { ref, set as fbSet, onValue, push, update, onDisconnect } from 'firebase/database';
+import { ref, set as fbSet, onValue, push, update, onDisconnect, Unsubscribe } from 'firebase/database';
 import { db } from './firebase';
 import { auth } from './auth';
 import { compressImage, isValidImageFile } from './utils/imageCompressor';
@@ -178,6 +178,11 @@ interface AppState {
 
 const conversationIdFor = (a: string, b: string) => [a, b].sort().join('__');
 
+let locationWatchId: number | null = null;
+let usersUnsubscribe: Unsubscribe | null = null;
+let messageIndexUnsubscribe: Unsubscribe | null = null;
+const conversationUnsubscribes = new Map<string, Unsubscribe>();
+
 const generateUserId = () => {
   // Verified Telegram/Firebase users always use their authenticated UID.
   if (auth.currentUser?.uid) {
@@ -256,8 +261,9 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   addDemoUsersIfNeeded: () => {
+    if (usersUnsubscribe) usersUnsubscribe();
     const usersRef = ref(db, 'users');
-    onValue(usersRef, (snapshot) => {
+    usersUnsubscribe = onValue(usersRef, (snapshot) => {
       const data = snapshot.val();
       const usersCount = data ? Object.keys(data).length : 0;
       
@@ -954,7 +960,8 @@ export const useStore = create<AppState>((set, get) => ({
   startLocationTracking: () => {
     if (!navigator.geolocation) return;
 
-    navigator.geolocation.watchPosition(
+    if (locationWatchId !== null) navigator.geolocation.clearWatch(locationWatchId);
+    locationWatchId = navigator.geolocation.watchPosition(
       (position) => {
         const { latitude, longitude } = position.coords;
         get().updateLocation(latitude, longitude);
@@ -1005,24 +1012,37 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   listenForMessages: () => {
-    const { currentUser, allUsers } = get();
+    const { currentUser } = get();
     if (!currentUser) return;
+
+    if (messageIndexUnsubscribe) messageIndexUnsubscribe();
+    conversationUnsubscribes.forEach(unsubscribe => unsubscribe());
+    conversationUnsubscribes.clear();
 
     const indexRef = ref(db, `userConversations/${currentUser.id}`);
     let previousMessages: Message[] = [];
     let isFirstLoad = true;
     const conversationMessages = new Map<string, Message[]>();
 
-    onValue(indexRef, (indexSnapshot) => {
+    messageIndexUnsubscribe = onValue(indexRef, (indexSnapshot) => {
       const conversationIds = Object.keys(indexSnapshot.val() || {});
+      const activeIds = new Set(conversationIds);
+      conversationUnsubscribes.forEach((unsubscribe, id) => {
+        if (!activeIds.has(id)) {
+          unsubscribe();
+          conversationUnsubscribes.delete(id);
+          conversationMessages.delete(id);
+        }
+      });
       if (conversationIds.length === 0) {
         set({ messages: [] });
         return;
       }
 
       conversationIds.forEach((conversationId) => {
+        if (conversationUnsubscribes.has(conversationId)) return;
         const messagesRef = ref(db, `conversations/${conversationId}/messages`);
-        onValue(messagesRef, (snapshot) => {
+        const unsubscribe = onValue(messagesRef, (snapshot) => {
           const data = snapshot.val() || {};
           const items: Message[] = Object.entries(data)
             .map(([id, msgData]) => ({ ...(msgData as Message), id }))
@@ -1037,7 +1057,7 @@ export const useStore = create<AppState>((set, get) => ({
             allMessages
               .filter(m => !previousMessages.some(pm => pm.id === m.id) && m.toId === currentUser.id && !m.read)
               .forEach(msg => {
-                const sender = allUsers.find(u => u.id === msg.fromId);
+                const sender = get().allUsers.find(u => u.id === msg.fromId);
                 if (sender) notifyNewMessage(sender.name, msg.text, sender.id);
               });
           }
@@ -1046,6 +1066,7 @@ export const useStore = create<AppState>((set, get) => ({
           previousMessages = allMessages;
           set({ messages: allMessages });
         }, error => logError(error, 'listenForConversationMessages'));
+        conversationUnsubscribes.set(conversationId, unsubscribe);
       });
     }, error => logError(error, 'listenForConversationIndex'));
   },
