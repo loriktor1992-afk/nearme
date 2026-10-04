@@ -34,7 +34,7 @@ export default function EditProfile() {
 
   const handleDeletePhoto = async (photoIndex: number) => {
     if (confirm('Удалить фото?')) {
-      await deletePhoto(photoId);
+      await deletePhoto(photoIndex);
       hapticFeedback.light();
     }
   };
