@@ -1,0 +1,36 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "users": {
+      ".read": "auth != null",
+      "$uid": {
+        ".write": "auth != null && (auth.uid === $uid || (data.exists() && !newData.exists() && auth.token.admin === true))"
+      }
+    },
+
+    "messages": {
+      ".read": "auth != null",
+      ".indexOn": ["fromId", "toId", "timestamp"],
+      "$messageId": {
+        ".write": "auth != null && ((!data.exists() && newData.child('fromId').val() === auth.uid && newData.child('toId').isString()) || (data.exists() && (data.child('fromId').val() === auth.uid || data.child('toId').val() === auth.uid)))",
+        ".validate": "!newData.exists() || (newData.hasChildren(['fromId','toId','text','timestamp']) && newData.child('fromId').isString() && newData.child('toId').isString() && newData.child('text').isString() && newData.child('text').val().length > 0 && newData.child('text').val().length <= 4000 && newData.child('timestamp').isNumber())"
+      }
+    },
+
+    "districts": {
+      ".read": "auth != null",
+      "$districtId": {
+        ".write": "auth != null && ((!data.exists() && newData.child('adminId').val() === auth.uid) || data.child('adminId').val() === auth.uid || data.child('adminIds').child(auth.uid).val() === true || data.child('memberIds').child(auth.uid).val() === true)"
+      }
+    },
+
+    "invites": {
+      ".read": "auth != null",
+      "$inviteId": {
+        ".write": "auth != null && ((!data.exists() && newData.child('fromUserId').val() === auth.uid) || data.child('fromUserId').val() === auth.uid || data.child('toUserId').val() === auth.uid)"
+      }
+    }
+  }
+}
