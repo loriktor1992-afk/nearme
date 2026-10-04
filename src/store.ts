@@ -240,10 +240,9 @@ export const useStore = create<AppState>((set, get) => ({
     const userRef = ref(db, `users/${userId}`);
     fbSet(userRef, user);
 
-    onDisconnect(userRef).update({
-      isOnline: false,
-      lastSeen: Date.now(),
-    });
+    const presenceRef = ref(db, `presence/${userId}`);
+    update(presenceRef, { isOnline: true, lastSeen: Date.now() });
+    onDisconnect(presenceRef).update({ isOnline: false, lastSeen: Date.now() });
 
     localStorage.setItem('nearme_registered', 'true');
     localStorage.setItem('nearme_user', JSON.stringify(user));
@@ -949,8 +948,8 @@ export const useStore = create<AppState>((set, get) => ({
       lat: publicLat,
       lng: publicLng,
       locationPrecision: shareExactLocation ? 'exact' : 'coarse',
-      lastSeen: Date.now(),
     });
+    update(ref(db, `presence/${currentUser.id}`), { isOnline: true, lastSeen: Date.now() });
     
     set({ 
       currentUser: { ...currentUser, lat, lng },
@@ -972,43 +971,37 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   listenForUsers: () => {
+    if (usersUnsubscribe) usersUnsubscribe();
     const usersRef = ref(db, 'users');
-    onValue(usersRef, (snapshot) => {
-      try {
-        const data = snapshot.val();
-        if (!data) {
-          set({ onlineUsers: [], totalUsers: 0 });
-          return;
-        }
+    const presenceRef = ref(db, 'presence');
 
-        const allUsers: User[] = Object.entries(data)
-          .map(([id, userData]) => ({ ...(userData as User), id }));
-
-        const onlineUsers: User[] = allUsers
-          .filter(u => u.id !== get().currentUser?.id)
-          .filter(u => Date.now() - u.lastSeen < 30 * 60 * 1000) // 30 минут
-          .filter(u => {
-            // Учитываем режим приватности
-            const privacyMode = u.privacySettings?.visibilityMode || 'online';
-            // Показываем только тех, кто в режиме 'online' или 'ghost' (ghost виден только premium)
-            return privacyMode === 'online' || privacyMode === 'ghost';
-          })
-          .filter(u => {
-            // Учитываем showOnMap
-            return u.privacySettings?.showOnMap !== false;
+    usersUnsubscribe = onValue(usersRef, (snapshot) => {
+      const data = snapshot.val() || {};
+      onValue(presenceRef, (presenceSnapshot) => {
+        try {
+          const presence = presenceSnapshot.val() || {};
+          const allUsers: User[] = Object.entries(data).map(([id, userData]) => {
+            const state = presence[id] || {};
+            return {
+              ...(userData as User),
+              id,
+              isOnline: state.isOnline === true,
+              lastSeen: Number(state.lastSeen || 0),
+            };
           });
 
-        set({ 
-          onlineUsers: onlineUsers, 
-          allUsers: allUsers, // Все пользователи включая текущего (нужно для поиска в чатах)
-          totalUsers: allUsers.length 
-        });
-      } catch (error) {
-        logError(error, 'listenForUsers');
-      }
-    }, (error) => {
-      logError(error, 'listenForUsers callback');
-    });
+          const onlineUsers = allUsers
+            .filter(u => u.id !== get().currentUser?.id)
+            .filter(u => u.isOnline && Date.now() - u.lastSeen < 30 * 60 * 1000)
+            .filter(u => (u.privacySettings?.visibilityMode || 'online') === 'online')
+            .filter(u => u.privacySettings?.showOnMap !== false);
+
+          set({ onlineUsers, allUsers, totalUsers: allUsers.length });
+        } catch (error) {
+          logError(error, 'listenForUsers/presence');
+        }
+      }, error => logError(error, 'listenForPresence'), { onlyOnce: true });
+    }, error => logError(error, 'listenForUsers'));
   },
 
   listenForMessages: () => {
@@ -1097,12 +1090,14 @@ auth.onAuthStateChanged((firebaseUser) => {
       const firebaseProfile = snapshot.val();
       if (!firebaseProfile) return;
 
-      const updatedUser = { ...cachedUser, ...firebaseProfile, id: firebaseUser.uid, isOnline: true, lastSeen: Date.now() };
-      update(userRef, { isOnline: true, lastSeen: updatedUser.lastSeen });
+      const now = Date.now();
+      const updatedUser = { ...cachedUser, ...firebaseProfile, id: firebaseUser.uid, isOnline: true, lastSeen: now };
+      const presenceRef = ref(db, `presence/${firebaseUser.uid}`);
+      update(presenceRef, { isOnline: true, lastSeen: now });
       useStore.setState({ currentUser: updatedUser, isRegistered: true });
       localStorage.setItem('nearme_user', JSON.stringify(updatedUser));
 
-      onDisconnect(userRef).update({ isOnline: false, lastSeen: Date.now() });
+      onDisconnect(presenceRef).update({ isOnline: false, lastSeen: Date.now() });
       useStore.getState().listenForUsers();
       useStore.getState().listenForMessages();
       useStore.getState().listenForDistricts();
