@@ -282,6 +282,51 @@ exports.migrateLegacyProfile = functions.https.onRequest(async (req, res) => {
 
 
 
+// Creates a deterministic two-person conversation using the verified Firebase identity.
+exports.createConversation = functions.https.onRequest(async (req, res) => {
+  if (req.method !== 'POST') {
+    res.status(405).json({ error: 'method_not_allowed' });
+    return;
+  }
+
+  try {
+    const authHeader = req.headers.authorization || '';
+    const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+    if (!idToken) {
+      res.status(401).json({ error: 'authentication_required' });
+      return;
+    }
+
+    const decoded = await admin.auth().verifyIdToken(idToken);
+    const targetUid = typeof req.body?.targetUid === 'string' ? req.body.targetUid.trim() : '';
+    if (!targetUid || targetUid === decoded.uid || targetUid.length > 128) {
+      res.status(400).json({ error: 'invalid_target' });
+      return;
+    }
+
+    const targetProfile = await admin.database().ref(`users/${targetUid}`).get();
+    if (!targetProfile.exists()) {
+      res.status(404).json({ error: 'target_not_found' });
+      return;
+    }
+
+    const members = [decoded.uid, targetUid].sort();
+    const conversationId = members.join('__');
+    const updates = {
+      [`conversationMembers/${conversationId}/${members[0]}`]: true,
+      [`conversationMembers/${conversationId}/${members[1]}`]: true,
+      [`userConversations/${members[0]}/${conversationId}`]: true,
+      [`userConversations/${members[1]}/${conversationId}`]: true,
+    };
+    await admin.database().ref().update(updates);
+    res.status(200).json({ conversationId });
+  } catch (error) {
+    console.error('Conversation creation failed', error);
+    res.status(401).json({ error: 'conversation_creation_failed' });
+  }
+});
+
+
 // One-time admin-only backfill from legacy /messages into private conversations.
 exports.backfillLegacyMessages = functions.https.onRequest(async (req, res) => {
   if (req.method !== 'POST') {
