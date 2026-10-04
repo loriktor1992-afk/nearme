@@ -118,3 +118,56 @@ export const saveTelegramChatId = functions.https.onRequest(async (req, res) => 
   await admin.database().ref(`users/${userId}/telegramChatId`).set(chatId);
   res.status(200).send('Chat ID saved');
 });
+
+function parseTelegramInitData(initData) {
+  const params = new URLSearchParams(initData);
+  const hash = params.get('hash');
+  if (!hash) return null;
+
+  params.delete('hash');
+  const dataCheckString = Array.from(params.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, value]) => `${key}=${value}`)
+    .join('\n');
+
+  const crypto = require('crypto');
+  const secretKey = crypto.createHmac('sha256', 'WebAppData').update(TELEGRAM_BOT_TOKEN || '').digest();
+  const calculatedHash = crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
+  const hashA = Buffer.from(calculatedHash, 'hex');
+  const hashB = Buffer.from(hash, 'hex');
+  if (hashA.length !== hashB.length || !crypto.timingSafeEqual(hashA, hashB)) return null;
+
+  const authDate = Number(params.get('auth_date'));
+  if (!Number.isFinite(authDate) || Math.floor(Date.now() / 1000) - authDate > 3600) return null;
+
+  try {
+    return JSON.parse(params.get('user') || 'null');
+  } catch {
+    return null;
+  }
+}
+
+// Validates Telegram Mini App initData on the trusted server and returns a Firebase custom token.
+export const telegramAuth = functions.https.onRequest(async (req, res) => {
+  if (req.method !== 'POST') {
+    res.status(405).json({ error: 'method_not_allowed' });
+    return;
+  }
+  if (!TELEGRAM_BOT_TOKEN) {
+    res.status(503).json({ error: 'telegram_not_configured' });
+    return;
+  }
+
+  const initData = typeof req.body?.initData === 'string' ? req.body.initData : '';
+  const telegramUser = parseTelegramInitData(initData);
+  if (!telegramUser?.id) {
+    res.status(401).json({ error: 'invalid_telegram_init_data' });
+    return;
+  }
+
+  const uid = `tg_${telegramUser.id}`;
+  const customToken = await admin.auth().createCustomToken(uid, {
+    telegramId: String(telegramUser.id),
+  });
+  res.status(200).json({ customToken, uid });
+});
