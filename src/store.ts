@@ -214,6 +214,7 @@ const conversationUnsubscribes = new Map<string, Unsubscribe>();
 const typingConversationUnsubscribes = new Map<string, Unsubscribe>();
 const typingConversationStates = new Map<string, Record<string, number>>();
 let lastTypingWriteAt = 0;
+let typingStopTimer: ReturnType<typeof setTimeout> | null = null;
 
 const generateUserId = () => {
   // Production identity is always the verified Firebase UID.
@@ -982,6 +983,12 @@ export const useStore = create<AppState>((set, get) => ({
     const typingRef = ref(db, `typing/${conversationId}/${currentUser.id}`);
     fbSet(typingRef, serverTimestamp());
     onDisconnect(typingRef).remove();
+
+    if (typingStopTimer) clearTimeout(typingStopTimer);
+    typingStopTimer = setTimeout(() => {
+      fbSet(typingRef, null);
+      typingStopTimer = null;
+    }, 2200);
   },
 
   addReaction: (messageId, emoji) => {
