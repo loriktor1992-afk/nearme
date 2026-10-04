@@ -70,42 +70,30 @@ exports.onMessageCreated = functions.database
 
 // Триггер при новом лайке
 exports.onLikeCreated = functions.database
-  .ref('users/{userId}/likes/{likerId}')
+  .ref('likes/{userId}/{likerId}')
   .onCreate(async (snapshot, context) => {
-    const userId = context.params.userId;
-    const likerId = context.params.likerId;
-    
-    // Получаем информацию о том кто лайкнул
+    const { userId, likerId } = context.params;
+    if (userId === likerId) return null;
+
     const likerDoc = await admin.database().ref(`users/${likerId}`).get();
     const likerData = likerDoc.val();
-    
     if (likerData) {
-      const notificationText = `❤️ <b>${likerData.name} лайкнул(а) ваш профиль!</b>`;
-      await sendTelegramNotification(userId, notificationText);
+      await sendTelegramNotification(userId, `❤️ ${likerData.name} лайкнул(а) ваш профиль!`);
     }
-  });
 
-// Триггер при взаимном лайке (match)
-exports.onMatchCreated = functions.database
-  .ref('users/{userId}/likes/{likerId}')
-  .onCreate(async (snapshot, context) => {
-    const userId = context.params.userId;
-    const likerId = context.params.likerId;
-    
-    // Проверяем взаимность
-    const userLikesDoc = await admin.database().ref(`users/${userId}/likes/${likerId}`).get();
-    const likerLikesDoc = await admin.database().ref(`users/${likerId}/likes/${userId}`).get();
-    
-    if (userLikesDoc.exists() && likerLikesDoc.exists()) {
-      // Взаимный лайк!
-      const likerDoc = await admin.database().ref(`users/${likerId}`).get();
-      const likerData = likerDoc.val();
-      
-      if (likerData) {
-        const notificationText = `💕 <b>Взаимная симпатия!</b>\n\nУ вас взаимный лайк с ${likerData.name}!`;
-        await sendTelegramNotification(userId, notificationText);
-      }
-    }
+    const reciprocal = await admin.database().ref(`likes/${likerId}/${userId}`).get();
+    if (!reciprocal.exists()) return null;
+
+    const updates = {};
+    updates[`matches/${userId}/${likerId}`] = true;
+    updates[`matches/${likerId}/${userId}`] = true;
+    await admin.database().ref().update(updates);
+
+    const userDoc = await admin.database().ref(`users/${userId}`).get();
+    const userData = userDoc.val();
+    if (likerData) await sendTelegramNotification(userId, `💕 Взаимная симпатия! У вас взаимный лайк с ${likerData.name}!`);
+    if (userData) await sendTelegramNotification(likerId, `💕 Взаимная симпатия! У вас взаимный лайк с ${userData.name}!`);
+    return null;
   });
 
 // Функция для сохранения Telegram chat_id при старте бота
