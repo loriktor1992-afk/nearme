@@ -271,7 +271,9 @@ export const useStore = create<AppState>((set, get) => ({
     };
 
     const userRef = ref(db, `users/${userId}`);
-    fbSet(userRef, user);
+    const { blockedUsers = [], ...publicPrivacySettings } = user.privacySettings;
+    fbSet(userRef, { ...user, privacySettings: publicPrivacySettings });
+    fbSet(ref(db, `privateSettings/${userId}/blockedUsers`), blockedUsers);
 
     const presenceRef = ref(db, `presence/${userId}`);
     update(presenceRef, { isOnline: true, lastSeen: Date.now() });
@@ -609,7 +611,15 @@ export const useStore = create<AppState>((set, get) => ({
 
     const updated = { ...currentUser, ...data };
     const userRef = ref(db, `users/${currentUser.id}`);
-    update(userRef, data);
+
+    if (data.privacySettings) {
+      const { blockedUsers = [], ...publicPrivacySettings } = data.privacySettings;
+      update(userRef, { ...data, privacySettings: publicPrivacySettings });
+      fbSet(ref(db, `privateSettings/${currentUser.id}/blockedUsers`), blockedUsers);
+      fbSet(ref(db, `users/${currentUser.id}/privacySettings/blockedUsers`), null);
+    } else {
+      update(userRef, data);
+    }
     set({ currentUser: updated });
 
     const previousExact = currentUser.privacySettings?.shareExactLocation === true;
@@ -1158,20 +1168,46 @@ auth.onAuthStateChanged((firebaseUser) => {
       const firebaseProfile = snapshot.val();
       if (!firebaseProfile) return;
 
-      const now = Date.now();
-      const updatedUser = { ...cachedUser, ...firebaseProfile, id: firebaseUser.uid, isOnline: true, lastSeen: now };
-      const presenceRef = ref(db, `presence/${firebaseUser.uid}`);
-      update(presenceRef, { isOnline: true, lastSeen: now });
-      useStore.setState({ currentUser: updatedUser, isRegistered: true });
-      localStorage.setItem('nearme_user', JSON.stringify(updatedUser));
+      onValue(ref(db, `privateSettings/${firebaseUser.uid}/blockedUsers`), privateSnapshot => {
+        const privateBlocked = privateSnapshot.val();
+        const legacyBlocked = firebaseProfile.privacySettings?.blockedUsers;
+        const blockedUsers = Array.isArray(privateBlocked)
+          ? privateBlocked
+          : Array.isArray(legacyBlocked)
+            ? legacyBlocked
+            : [];
 
-      onDisconnect(presenceRef).update({ isOnline: false, lastSeen: Date.now() });
-      useStore.getState().listenForUsers();
-      useStore.getState().listenForMessages();
-      useStore.getState().listenForMatches();
-      useStore.getState().listenForDistricts();
-      useStore.getState().listenForInvites();
-      useStore.getState().startLocationTracking();
+        const now = Date.now();
+        const updatedUser = {
+          ...cachedUser,
+          ...firebaseProfile,
+          id: firebaseUser.uid,
+          isOnline: true,
+          lastSeen: now,
+          privacySettings: {
+            ...cachedUser.privacySettings,
+            ...firebaseProfile.privacySettings,
+            blockedUsers,
+          },
+        };
+        const presenceRef = ref(db, `presence/${firebaseUser.uid}`);
+        update(presenceRef, { isOnline: true, lastSeen: now });
+        useStore.setState({ currentUser: updatedUser, isRegistered: true });
+        localStorage.setItem('nearme_user', JSON.stringify(updatedUser));
+
+        if (Array.isArray(legacyBlocked)) {
+          fbSet(ref(db, `privateSettings/${firebaseUser.uid}/blockedUsers`), legacyBlocked);
+          fbSet(ref(db, `users/${firebaseUser.uid}/privacySettings/blockedUsers`), null);
+        }
+
+        onDisconnect(presenceRef).update({ isOnline: false, lastSeen: Date.now() });
+        useStore.getState().listenForUsers();
+        useStore.getState().listenForMessages();
+        useStore.getState().listenForMatches();
+        useStore.getState().listenForDistricts();
+        useStore.getState().listenForInvites();
+        useStore.getState().startLocationTracking();
+      }, { onlyOnce: true });
     }, { onlyOnce: true });
   } catch {
     localStorage.removeItem('nearme_registered');
