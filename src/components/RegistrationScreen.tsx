@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { useStore } from '../store';
 
 export default function RegistrationScreen() {
-  const register = useStore(s => s.register);
-  
+  const register = useStore(state => state.register);
+
   const [step, setStep] = useState(1);
   const [name, setName] = useState('');
   const [age, setAge] = useState('');
@@ -13,16 +13,19 @@ export default function RegistrationScreen() {
 
   const handleNext = () => {
     setError('');
-    
+
     if (step === 1) {
       if (!name.trim()) {
         setError('Введите имя');
         return;
       }
       setStep(2);
-    } else if (step === 2) {
-      const ageNum = parseInt(age);
-      if (!age || isNaN(ageNum)) {
+      return;
+    }
+
+    if (step === 2) {
+      const ageNum = parseInt(age, 10);
+      if (!age || Number.isNaN(ageNum)) {
         setError('Введите возраст');
         return;
       }
@@ -35,84 +38,108 @@ export default function RegistrationScreen() {
         return;
       }
       setStep(3);
-    } else if (step === 3) {
-      setStep(4);
-    } else if (step === 4) {
-      const avatar = gender === 'female' 
-        ? ['👩', '👩‍🦰', '👩‍🦱', '💃', '🧘‍♀️'][Math.floor(Math.random() * 5)]
-        : ['👨', '👨‍🦱', '🧑', '👨‍💻', '🎸'][Math.floor(Math.random() * 5)];
-      
-      register({
-        name: name.trim(),
-        age: parseInt(age),
-        birthDay: 1,
-        birthMonth: 1,
-        birthYear: new Date().getFullYear() - parseInt(age),
-        gender,
-        bio: bio.trim() || 'Привет! Я новенький тут 👋',
-        avatar,
-        photoUrl: '',
-        photos: [],
-        status: '',
-        city: '',
-        likes: [],
-        dislikes: [],
-        profileViews: [],
-        interests: [],
-        height: 0,
-        zodiac: '',
-        languages: [],
-        socialLinks: { instagram: '', vk: '', telegram: '' },
-        lookingFor: '',
-        activityTime: '',
-        verified: false,
-        level: 1,
-        xp: 0,
-        achievements: [],
-        isPremium: false,
-        privacySettings: {
-          showDistance: true,
-          showLastSeen: true,
-          allowMessages: true,
-          visibilityMode: 'online',
-          visibilityRadius: 5000,
-          blockedUsers: [],
-          showOnMap: true,
-        },
-      });
+      return;
     }
+
+    if (step === 3) {
+      setStep(4);
+      return;
+    }
+
+    const avatar = gender === 'female'
+      ? ['👩', '👩‍🦰', '👩‍🦱', '💃', '🧘‍♀️'][Math.floor(Math.random() * 5)]
+      : ['👨', '👨‍🦱', '🧑', '👨‍💻', '🎸'][Math.floor(Math.random() * 5)];
+
+    register({
+      name: name.trim(),
+      age: parseInt(age, 10),
+      birthDay: 1,
+      birthMonth: 1,
+      birthYear: new Date().getFullYear() - parseInt(age, 10),
+      gender,
+      bio: bio.trim() || 'Привет! Я новенький тут 👋',
+      avatar,
+      photoUrl: '',
+      photos: [],
+      status: '',
+      city: '',
+      likes: [],
+      dislikes: [],
+      profileViews: [],
+      interests: [],
+      height: 0,
+      zodiac: '',
+      languages: [],
+      socialLinks: { instagram: '', vk: '', telegram: '' },
+      lookingFor: '',
+      activityTime: '',
+      verified: false,
+      level: 1,
+      xp: 0,
+      achievements: [],
+      isPremium: false,
+      privacySettings: {
+        showDistance: true,
+        showLastSeen: true,
+        allowMessages: true,
+        visibilityMode: 'online',
+        visibilityRadius: 5000,
+        blockedUsers: [],
+        showOnMap: true,
+        shareExactLocation: false,
+      },
+    });
   };
 
+  const title = ['Как тебя зовут?', 'Сколько тебе лет?', 'Кто ты?', 'Пара слов о себе'][step - 1];
+  const subtitle = [
+    'Имя увидят люди рядом.',
+    'Возраст помогает сделать рекомендации точнее.',
+    'Это можно изменить позже в профиле.',
+    'Коротко и по-человечески — без анкеты на работу.',
+  ][step - 1];
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-500 via-purple-500 to-indigo-600 flex items-center justify-center p-4">
-      <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <div className="text-6xl mb-3">💕</div>
-          <h1 className="text-3xl font-bold text-white">NearMe</h1>
-          <p className="text-white/80 mt-1">Знакомства рядом с тобой</p>
+    <div className="relative min-h-screen overflow-hidden bg-slate-950 px-4 pb-[max(20px,env(safe-area-inset-bottom))] pt-[max(24px,env(safe-area-inset-top))] text-white">
+      <div className="pointer-events-none absolute -left-20 top-[-90px] h-72 w-72 rounded-full bg-violet-600/35 blur-3xl" />
+      <div className="pointer-events-none absolute -right-20 bottom-[-70px] h-72 w-72 rounded-full bg-fuchsia-500/25 blur-3xl" />
+
+      <div className="relative mx-auto flex min-h-[calc(100vh-44px)] w-full max-w-md flex-col">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-xs font-bold uppercase tracking-[0.24em] text-violet-300">NearMe</div>
+            <div className="mt-1 text-sm text-white/55">Знакомства в реальном времени</div>
+          </div>
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 text-xl backdrop-blur-xl">
+            <i className="fas fa-location-dot" />
+          </div>
         </div>
 
-        <div className="bg-white/95 backdrop-blur-lg rounded-3xl shadow-2xl p-6">
-          <div className="flex gap-2 mb-6">
-            {[1, 2, 3, 4].map(s => (
+        <div className="mt-10">
+          <div className="mb-5 flex gap-2">
+            {[1, 2, 3, 4].map(item => (
               <div
-                key={s}
-                className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${
-                  s <= step ? 'bg-gradient-to-r from-pink-500 to-purple-500' : 'bg-gray-200'
-                }`}
+                key={item}
+                className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${item <= step ? 'bg-gradient-to-r from-violet-500 to-fuchsia-400' : 'bg-white/10'}`}
               />
             ))}
           </div>
 
+          <div className="text-sm font-semibold text-violet-300">Шаг {step} из 4</div>
+          <h1 className="mt-2 text-4xl font-black tracking-[-0.04em]">{title}</h1>
+          <p className="mt-3 max-w-sm text-[15px] leading-6 text-white/55">{subtitle}</p>
+        </div>
+
+        <div className="mt-8 flex-1">
           {step === 1 && (
-            <div className="space-y-4">
-              <h2 className="text-xl font-bold text-gray-800">Как тебя зовут?</h2>
+            <div className="space-y-3">
+              <label className="text-xs font-bold uppercase tracking-[0.14em] text-white/45">Имя</label>
               <input
                 type="text"
                 value={name}
-                onChange={e => setName(e.target.value)}
-                placeholder="Введи имя"
-                className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-purple-400 focus:outline-none text-lg transition-colors"
+                onChange={event => setName(event.target.value)}
+                placeholder="Например, Алексей"
+                className="h-16 w-full rounded-[22px] border border-white/10 bg-white/[0.07] px-5 text-xl font-semibold text-white outline-none backdrop-blur-xl placeholder:text-white/25 focus:border-violet-400/60 focus:bg-white/[0.1]"
                 maxLength={20}
                 autoFocus
               />
@@ -120,95 +147,86 @@ export default function RegistrationScreen() {
           )}
 
           {step === 2 && (
-            <div className="space-y-4">
-              <h2 className="text-xl font-bold text-gray-800">Сколько тебе лет?</h2>
-              <p className="text-sm text-gray-500">Минимальный возраст — 14 лет</p>
+            <div className="space-y-3">
+              <label className="text-xs font-bold uppercase tracking-[0.14em] text-white/45">Возраст</label>
               <input
                 type="number"
                 value={age}
-                onChange={e => setAge(e.target.value)}
-                placeholder="Возраст"
-                className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-purple-400 focus:outline-none text-lg transition-colors"
+                onChange={event => setAge(event.target.value)}
+                placeholder="25"
+                className="h-20 w-full rounded-[24px] border border-white/10 bg-white/[0.07] px-5 text-center text-4xl font-black text-white outline-none backdrop-blur-xl placeholder:text-white/20 focus:border-violet-400/60"
                 min="14"
                 max="99"
                 autoFocus
               />
-            </div>
-          )}
-
-          {step === 3 && (
-            <div className="space-y-4">
-              <h2 className="text-xl font-bold text-gray-800">Кто ты?</h2>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={() => setGender('male')}
-                  className={`p-4 rounded-2xl border-2 transition-all ${
-                    gender === 'male'
-                      ? 'border-blue-500 bg-blue-50 shadow-lg scale-105'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  <div className="text-4xl mb-2">👨</div>
-                  <div className="font-medium text-gray-700">Парень</div>
-                </button>
-                <button
-                  onClick={() => setGender('female')}
-                  className={`p-4 rounded-2xl border-2 transition-all ${
-                    gender === 'female'
-                      ? 'border-pink-500 bg-pink-50 shadow-lg scale-105'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  <div className="text-4xl mb-2">👩</div>
-                  <div className="font-medium text-gray-700">Девушка</div>
-                </button>
+              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-sm leading-6 text-white/45">
+                В NearMe минимальный возраст — 14 лет.
               </div>
             </div>
           )}
 
+          {step === 3 && (
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { id: 'male' as const, icon: '👨', label: 'Парень' },
+                { id: 'female' as const, icon: '👩', label: 'Девушка' },
+              ].map(option => {
+                const active = gender === option.id;
+                return (
+                  <button
+                    key={option.id}
+                    onClick={() => setGender(option.id)}
+                    className={`rounded-[28px] border p-6 text-left transition active:scale-[0.98] ${active
+                      ? 'border-violet-400/70 bg-violet-500/15 shadow-[0_20px_50px_rgba(124,58,237,.18)]'
+                      : 'border-white/10 bg-white/[0.05]'}`}
+                  >
+                    <div className="text-5xl">{option.icon}</div>
+                    <div className="mt-7 text-lg font-black">{option.label}</div>
+                    <div className={`mt-1 text-xs font-semibold ${active ? 'text-violet-300' : 'text-white/35'}`}>
+                      {active ? 'Выбрано' : 'Нажми, чтобы выбрать'}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
           {step === 4 && (
-            <div className="space-y-4">
-              <h2 className="text-xl font-bold text-gray-800">Расскажи о себе</h2>
+            <div>
               <textarea
                 value={bio}
-                onChange={e => setBio(e.target.value)}
-                placeholder="Чем увлекаешься? Что ищешь?"
-                className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-purple-400 focus:outline-none text-base transition-colors resize-none h-28"
+                onChange={event => setBio(event.target.value)}
+                placeholder="Люблю вечерние прогулки, хороший кофе и путешествия…"
+                className="h-44 w-full resize-none rounded-[24px] border border-white/10 bg-white/[0.07] p-5 text-[16px] leading-6 text-white outline-none backdrop-blur-xl placeholder:text-white/25 focus:border-violet-400/60"
                 maxLength={150}
                 autoFocus
               />
-              <p className="text-xs text-gray-400 text-right">{bio.length}/150</p>
+              <div className="mt-2 text-right text-xs font-semibold text-white/30">{bio.length}/150</div>
             </div>
           )}
 
           {error && (
-            <div className="mt-3 p-2 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm text-center">
+            <div className="mt-4 rounded-2xl border border-rose-400/20 bg-rose-500/10 px-4 py-3 text-sm font-semibold text-rose-200">
               {error}
             </div>
           )}
+        </div>
 
+        <div className="mt-8">
           <button
             onClick={handleNext}
-            className="w-full mt-5 py-3.5 bg-gradient-to-r from-pink-500 to-purple-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl active:scale-95 transition-all text-lg flex items-center justify-center gap-2"
+            className="flex h-14 w-full items-center justify-center gap-2 rounded-[20px] bg-gradient-to-r from-violet-600 to-fuchsia-500 text-[15px] font-black text-white shadow-[0_18px_40px_rgba(124,58,237,.32)] transition active:scale-[0.98]"
           >
-            {step === 1 ? (
-              <>
-                <i className="fas fa-map-marked-alt"></i>
-                <span>НА КАРТУ</span>
-              </>
-            ) : step === 4 ? (
-              '🚀 Начать знакомства'
-            ) : (
-              'Далее →'
-            )}
+            <span>{step === 4 ? 'Открыть NearMe' : 'Продолжить'}</span>
+            <i className={`fas ${step === 4 ? 'fa-location-arrow' : 'fa-arrow-right'} text-sm`} />
           </button>
-          
+
           {step > 1 && (
             <button
-              onClick={() => setStep(step - 1)}
-              className="w-full mt-2 py-2 text-gray-500 hover:text-gray-700 transition-colors"
+              onClick={() => setStep(current => current - 1)}
+              className="mt-2 h-11 w-full text-sm font-semibold text-white/45 transition active:scale-95"
             >
-              ← Назад
+              Назад
             </button>
           )}
         </div>
