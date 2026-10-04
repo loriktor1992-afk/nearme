@@ -1,6 +1,7 @@
 import { getAuth, signInWithCustomToken, User as FirebaseUser } from 'firebase/auth';
 import app from './firebase';
 import { tg } from './telegram';
+import { backend } from './backend';
 
 const auth = getAuth(app);
 
@@ -13,11 +14,7 @@ export async function signInWithTelegram(): Promise<NearMeAuthSession | null> {
   const initData = tg.initData;
   if (!initData) return null;
 
-  const endpoint = import.meta.env.VITE_TELEGRAM_AUTH_URL;
-  if (!endpoint) {
-    console.warn('VITE_TELEGRAM_AUTH_URL is not configured.');
-    return null;
-  }
+  const endpoint = backend.telegramAuth;
 
   const response = await fetch(endpoint, {
     method: 'POST',
@@ -51,11 +48,7 @@ export async function migrateLegacyProfileIfNeeded(session: NearMeAuthSession): 
     return false;
   }
 
-  const endpoint = import.meta.env.VITE_LEGACY_MIGRATION_URL;
-  if (!endpoint) {
-    console.warn('VITE_LEGACY_MIGRATION_URL is not configured.');
-    return false;
-  }
+  const endpoint = backend.migrateLegacyProfile;
 
   const idToken = await session.firebaseUser.getIdToken();
   const response = await fetch(endpoint, {

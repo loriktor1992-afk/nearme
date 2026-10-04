@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { auth } from './auth';
+import { backend } from './backend';
 import { useStore } from './store';
 import RegistrationScreen from './components/RegistrationScreen';
 import MapScreen from './components/MapScreen';
@@ -21,9 +22,9 @@ export default function App() {
   // Persist the Telegram private-chat destination only through the trusted backend.
   useEffect(() => {
     if (!isRegistered) return;
-    const endpoint = import.meta.env.VITE_SAVE_TELEGRAM_CHAT_ID_URL;
+    const endpoint = backend.saveTelegramChatId;
     const firebaseUser = auth.currentUser;
-    if (!endpoint || !firebaseUser) return;
+    if (!firebaseUser) return;
 
     const save = async () => {
       try {
