@@ -540,73 +540,38 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   likeUser: (userId) => {
-    const { currentUser, onlineUsers, allUsers } = get();
+    const { currentUser, allUsers } = get();
     if (!currentUser || userId === currentUser.id) return;
 
-    const userRef = ref(db, `users/${userId}/likes`);
-    onValue(userRef, (snapshot) => {
-      const likes = snapshot.val() || [];
-      if (!likes.includes(currentUser.id)) {
-        const newLikes = [...likes, currentUser.id];
-        fbSet(userRef, newLikes);
-        
-        // Отправляем уведомление о лайке владельцу профиля
-        const targetUser = allUsers.find(u => u.id === userId);
-        if (targetUser) {
-          // Уведомление для владельца профиля (если это не мы)
-          if (targetUser.id !== currentUser.id) {
-            // В реальном приложении здесь была бы отправка push-уведомления через Firebase Cloud Messaging
-            // Для демо просто логируем
-            console.log(`[Push] ${currentUser.name} лайкнул(а) ${targetUser.name}`);
-          }
-        }
-        
-        // Проверяем взаимность
-        if (targetUser && targetUser.likes?.includes(currentUser.id)) {
-          // Взаимный лайк!
-          get().showToast(`💕 У вас взаимная симпатия с ${targetUser.name}!`);
-          notifyMatch(targetUser.name, targetUser.id);
-        }
-      }
-    }, { onlyOnce: true });
+    // Relationship edges are UID-keyed and private from the public profile document.
+    fbSet(ref(db, `likes/${userId}/${currentUser.id}`), true);
+    fbSet(ref(db, `outgoingLikes/${currentUser.id}/${userId}`), true);
+
+    const targetUser = allUsers.find(u => u.id === userId);
+    if (targetUser) console.log(`[Like] ${currentUser.name} → ${targetUser.name}`);
   },
 
   unlikeUser: (userId) => {
     const { currentUser } = get();
     if (!currentUser) return;
-
-    const userRef = ref(db, `users/${userId}/likes`);
-    onValue(userRef, (snapshot) => {
-      const likes = snapshot.val() || [];
-      const newLikes = likes.filter((id: string) => id !== currentUser.id);
-      fbSet(userRef, newLikes);
-    }, { onlyOnce: true });
+    update(ref(db), {
+      [`likes/${userId}/${currentUser.id}`]: null,
+      [`outgoingLikes/${currentUser.id}/${userId}`]: null,
+      [`matches/${currentUser.id}/${userId}`]: null,
+      [`matches/${userId}/${currentUser.id}`]: null,
+    });
   },
 
   dislikeUser: (userId) => {
     const { currentUser } = get();
     if (!currentUser || userId === currentUser.id) return;
-
-    const userRef = ref(db, `users/${userId}/dislikes`);
-    onValue(userRef, (snapshot) => {
-      const dislikes = snapshot.val() || [];
-      if (!dislikes.includes(currentUser.id)) {
-        const newDislikes = [...dislikes, currentUser.id];
-        fbSet(userRef, newDislikes);
-      }
-    }, { onlyOnce: true });
+    fbSet(ref(db, `dislikes/${currentUser.id}/${userId}`), true);
   },
 
   getMatches: () => {
-    const { currentUser, onlineUsers } = get();
-    if (!currentUser) return [];
-
-    return onlineUsers.filter(user => {
-      // Взаимный лайк
-      const iLiked = user.likes?.includes(currentUser.id);
-      const likedMe = currentUser.likes?.includes(user.id);
-      return iLiked && likedMe;
-    });
+    // Match state is server-authoritative; this compatibility selector is intentionally empty
+    // until the dedicated matches listener is wired into store state.
+    return [];
   },
 
   getUnreadCount: () => {
