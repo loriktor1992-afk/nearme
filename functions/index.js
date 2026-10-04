@@ -1,8 +1,9 @@
 // Firebase Cloud Functions для push-уведомлений
 // Этот файл нужно задеплоить на Firebase Functions
 
-import * as functions from 'firebase-functions';
-import * as admin from 'firebase-admin';
+const functions = require('firebase-functions');
+const admin = require('firebase-admin');
+const crypto = require('crypto');
 
 admin.initializeApp();
 
@@ -14,7 +15,7 @@ if (!TELEGRAM_BOT_TOKEN) {
 }
 
 // Функция для отправки уведомления через Telegram Bot
-async function sendTelegramNotification(userId: string, message: string) {
+async function sendTelegramNotification(userId, message) {
   try {
     if (!TELEGRAM_BOT_TOKEN) return;
     // Получаем Telegram chat_id пользователя из Firebase
@@ -47,8 +48,8 @@ async function sendTelegramNotification(userId: string, message: string) {
 }
 
 // Триггер при создании нового сообщения
-export const onMessageCreated = functions.database
-  .ref('messages/{messageId}')
+exports.onMessageCreated = functions.database
+  .ref('conversations/{conversationId}/messages/{messageId}')
   .onCreate(async (snapshot, context) => {
     const message = snapshot.val();
     const messageId = context.params.messageId;
@@ -68,7 +69,7 @@ export const onMessageCreated = functions.database
   });
 
 // Триггер при новом лайке
-export const onLikeCreated = functions.database
+exports.onLikeCreated = functions.database
   .ref('users/{userId}/likes/{likerId}')
   .onCreate(async (snapshot, context) => {
     const userId = context.params.userId;
@@ -85,7 +86,7 @@ export const onLikeCreated = functions.database
   });
 
 // Триггер при взаимном лайке (match)
-export const onMatchCreated = functions.database
+exports.onMatchCreated = functions.database
   .ref('users/{userId}/likes/{likerId}')
   .onCreate(async (snapshot, context) => {
     const userId = context.params.userId;
@@ -108,7 +109,7 @@ export const onMatchCreated = functions.database
   });
 
 // Функция для сохранения Telegram chat_id при старте бота
-export const saveTelegramChatId = functions.https.onRequest(async (req, res) => {
+exports.saveTelegramChatId = functions.https.onRequest(async (req, res) => {
   const { userId, chatId } = req.body;
   
   if (!userId || !chatId) {
@@ -131,7 +132,6 @@ function parseTelegramInitData(initData) {
     .map(([key, value]) => `${key}=${value}`)
     .join('\n');
 
-  const crypto = require('crypto');
   const secretKey = crypto.createHmac('sha256', 'WebAppData').update(TELEGRAM_BOT_TOKEN || '').digest();
   const calculatedHash = crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
   const hashA = Buffer.from(calculatedHash, 'hex');
@@ -149,7 +149,7 @@ function parseTelegramInitData(initData) {
 }
 
 // Validates Telegram Mini App initData on the trusted server and returns a Firebase custom token.
-export const telegramAuth = functions.https.onRequest(async (req, res) => {
+exports.telegramAuth = functions.https.onRequest(async (req, res) => {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'method_not_allowed' });
     return;
@@ -179,7 +179,7 @@ export const telegramAuth = functions.https.onRequest(async (req, res) => {
 
 // Migrates a legacy local profile to the verified Telegram/Firebase UID.
 // Ownership is proven by a one-time migration token stored on the legacy profile.
-export const migrateLegacyProfile = functions.https.onRequest(async (req, res) => {
+exports.migrateLegacyProfile = functions.https.onRequest(async (req, res) => {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'method_not_allowed' });
     return;
@@ -272,7 +272,7 @@ export const migrateLegacyProfile = functions.https.onRequest(async (req, res) =
 
 
 // One-time admin-only backfill from legacy /messages into private conversations.
-export const backfillLegacyMessages = functions.https.onRequest(async (req, res) => {
+exports.backfillLegacyMessages = functions.https.onRequest(async (req, res) => {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'method_not_allowed' });
     return;
