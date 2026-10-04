@@ -176,6 +176,8 @@ interface AppState {
   setTheme: (theme: 'light' | 'dark') => void;
 }
 
+const conversationIdFor = (a: string, b: string) => [a, b].sort().join('__');
+
 const generateUserId = () => {
   // Verified Telegram/Firebase users always use their authenticated UID.
   if (auth.currentUser?.uid) {
@@ -849,22 +851,29 @@ export const useStore = create<AppState>((set, get) => ({
 
   sendMessage: (text) => {
     const { currentUser, selectedUser } = get();
-    if (!currentUser || !selectedUser) return;
+    if (!currentUser || !selectedUser || !text.trim()) return;
 
-    const messagesRef = ref(db, 'messages');
+    const conversationId = conversationIdFor(currentUser.id, selectedUser.id);
+    const messagesRef = ref(db, `conversations/${conversationId}/messages`);
     const newMessageRef = push(messagesRef);
-    
-    // Сохраняем информацию об отправителе в сообщении
+
     fbSet(newMessageRef, {
       fromId: currentUser.id,
       toId: selectedUser.id,
       fromName: currentUser.name,
       fromAvatar: currentUser.avatar,
       fromPhotoUrl: currentUser.photoUrl || '',
-      text,
+      text: text.trim(),
       timestamp: Date.now(),
       read: false,
       reactions: {},
+    });
+
+    update(ref(db), {
+      [`userConversations/${currentUser.id}/${conversationId}`]: true,
+      [`userConversations/${selectedUser.id}/${conversationId}`]: true,
+      [`conversationMembers/${conversationId}/${currentUser.id}`]: true,
+      [`conversationMembers/${conversationId}/${selectedUser.id}`]: true,
     });
   },
 
@@ -1000,68 +1009,46 @@ export const useStore = create<AppState>((set, get) => ({
     const { currentUser, allUsers } = get();
     if (!currentUser) return;
 
-    // Загружаем сохраненные сообщения из localStorage
-    const savedMessages = localStorage.getItem(`nearme_messages_${currentUser.id}`);
-    let initialMessages: Message[] = [];
-    if (savedMessages) {
-      try {
-        initialMessages = JSON.parse(savedMessages);
-        set({ messages: initialMessages });
-      } catch (e) {
-        logError(e, 'load saved messages');
-      }
-    }
-
-    const messagesRef = ref(db, 'messages');
-    // Инициализируем previousMessages из localStorage чтобы не было спама уведомлений
-    let previousMessages: Message[] = initialMessages;
+    const indexRef = ref(db, `userConversations/${currentUser.id}`);
+    let previousMessages: Message[] = [];
     let isFirstLoad = true;
+    const conversationMessages = new Map<string, Message[]>();
 
-    onValue(messagesRef, (snapshot) => {
-      try {
-        const data = snapshot.val();
-        
-        // Если данных нет в Firebase, не очищаем localStorage
-        if (!data) {
-          return;
-        }
-
-        const allMessages: Message[] = Object.entries(data)
-          .map(([id, msgData]) => ({ ...(msgData as Message), id }))
-          .filter(m => m.fromId === currentUser.id || m.toId === currentUser.id)
-          .sort((a, b) => a.timestamp - b.timestamp);
-
-        // Проверяем новые сообщения для push-уведомлений (только после первой загрузки)
-        if (!isFirstLoad) {
-          const newMessages = allMessages.filter(m => 
-            !previousMessages.find(pm => pm.id === m.id) && 
-            m.toId === currentUser.id && 
-            !m.read
-          );
-
-          // Отправляем push-уведомления только для действительно новых сообщений
-          if (newMessages.length > 0) {
-            newMessages.forEach(msg => {
-              const sender = allUsers.find(u => u.id === msg.fromId);
-              if (sender) {
-                notifyNewMessage(sender.name, msg.text, sender.id);
-              }
-            });
-          }
-        }
-
-        isFirstLoad = false;
-        previousMessages = allMessages;
-        set({ messages: allMessages });
-
-        // Сохраняем сообщения в localStorage для оффлайн режима
-        localStorage.setItem(`nearme_messages_${currentUser.id}`, JSON.stringify(allMessages));
-      } catch (error) {
-        logError(error, 'listenForMessages');
+    onValue(indexRef, (indexSnapshot) => {
+      const conversationIds = Object.keys(indexSnapshot.val() || {});
+      if (conversationIds.length === 0) {
+        set({ messages: [] });
+        return;
       }
-    }, (error) => {
-      logError(error, 'listenForMessages callback');
-    });
+
+      conversationIds.forEach((conversationId) => {
+        const messagesRef = ref(db, `conversations/${conversationId}/messages`);
+        onValue(messagesRef, (snapshot) => {
+          const data = snapshot.val() || {};
+          const items: Message[] = Object.entries(data)
+            .map(([id, msgData]) => ({ ...(msgData as Message), id }))
+            .filter(m => m.fromId === currentUser.id || m.toId === currentUser.id);
+          conversationMessages.set(conversationId, items);
+
+          const allMessages = Array.from(conversationMessages.values())
+            .flat()
+            .sort((a, b) => a.timestamp - b.timestamp);
+
+          if (!isFirstLoad) {
+            allMessages
+              .filter(m => !previousMessages.some(pm => pm.id === m.id) && m.toId === currentUser.id && !m.read)
+              .forEach(msg => {
+                const sender = allUsers.find(u => u.id === msg.fromId);
+                if (sender) notifyNewMessage(sender.name, msg.text, sender.id);
+              });
+          }
+
+          isFirstLoad = false;
+          previousMessages = allMessages;
+          set({ messages: allMessages });
+        }, error => logError(error, 'listenForConversationMessages'));
+      });
+    }, error => logError(error, 'listenForConversationIndex'));
   },
 
   setTheme: (theme) => {
