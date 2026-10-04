@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useStore } from '../store';
 import { formatTime } from '../utils/helpers';
+import { auth } from '../auth';
 
 interface AdminStats {
   totalUsers: number;
@@ -33,9 +34,24 @@ export default function AdminPanel() {
   });
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'chats' | 'messages' | 'activity'>('overview');
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [adminChecked, setAdminChecked] = useState(false);
 
-  // Проверка доступа (только для админа)
-  const isAdmin = currentUser?.id === 'admin' || localStorage.getItem('nearme_admin') === 'true';
+  useEffect(() => {
+    let active = true;
+    const checkAdmin = async () => {
+      try {
+        const result = await auth.currentUser?.getIdTokenResult();
+        if (active) setIsAdmin(result?.claims?.admin === true);
+      } catch {
+        if (active) setIsAdmin(false);
+      } finally {
+        if (active) setAdminChecked(true);
+      }
+    };
+    void checkAdmin();
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -82,7 +98,7 @@ export default function AdminPanel() {
     });
   }, [allUsers, onlineUsers, messages, isAdmin]);
 
-  if (!isAdmin) {
+  if (!adminChecked || !isAdmin) {
     return (
       <div className="fixed inset-0 z-[3000] bg-gray-900 flex items-center justify-center p-4">
         <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 max-w-md w-full text-center">
