@@ -200,28 +200,72 @@ export const migrateLegacyProfile = functions.https.onRequest(async (req, res) =
       return;
     }
 
-    const legacyRef = admin.database().ref(`users/${legacyUserId}`);
-    const legacySnapshot = await legacyRef.get();
-    const legacy = legacySnapshot.val();
+    const rootRef = admin.database().ref();
+    const rootSnapshot = await rootRef.get();
+    const root = rootSnapshot.val() || {};
+    const legacy = root.users?.[legacyUserId];
     if (!legacy || legacy.migrationToken !== migrationToken) {
       res.status(403).json({ error: 'legacy_profile_ownership_failed' });
       return;
     }
-
-    const targetRef = admin.database().ref(`users/${decoded.uid}`);
-    const targetSnapshot = await targetRef.get();
-    if (targetSnapshot.exists()) {
+    if (root.users?.[decoded.uid]) {
       res.status(409).json({ error: 'target_profile_exists' });
       return;
     }
 
+    const updates = {};
     const migrated = { ...legacy, id: decoded.uid };
     delete migrated.migrationToken;
-    await targetRef.set(migrated);
-    await legacyRef.remove();
-    res.status(200).json({ uid: decoded.uid });
+    updates[`users/${decoded.uid}`] = migrated;
+    updates[`users/${legacyUserId}`] = null;
+
+    // Rewrite message participants without changing message IDs/history.
+    for (const [messageId, message] of Object.entries(root.messages || {})) {
+      if (message?.fromId === legacyUserId) updates[`messages/${messageId}/fromId`] = decoded.uid;
+      if (message?.toId === legacyUserId) updates[`messages/${messageId}/toId`] = decoded.uid;
+    }
+
+    // Rewrite user relationship arrays (likes/dislikes/profileViews/blockedUsers).
+    for (const [userId, user] of Object.entries(root.users || {})) {
+      if (userId === legacyUserId || !user) continue;
+      for (const field of ['likes', 'dislikes', 'profileViews']) {
+        if (Array.isArray(user[field])) {
+          const next = user[field].map(value => value === legacyUserId ? decoded.uid : value);
+          if (next.some((value, index) => value !== user[field][index])) updates[`users/${userId}/${field}`] = next;
+        }
+      }
+      const blocked = user.privacySettings?.blockedUsers;
+      if (Array.isArray(blocked)) {
+        const next = blocked.map(value => value === legacyUserId ? decoded.uid : value);
+        if (next.some((value, index) => value !== blocked[index])) updates[`users/${userId}/privacySettings/blockedUsers`] = next;
+      }
+    }
+
+    // Rewrite district ownership/membership/admin references.
+    for (const [districtId, district] of Object.entries(root.districts || {})) {
+      if (!district) continue;
+      if (district.adminId === legacyUserId) updates[`districts/${districtId}/adminId`] = decoded.uid;
+      for (const field of ['adminIds', 'memberIds']) {
+        if (Array.isArray(district[field])) {
+          const next = district[field].map(value => value === legacyUserId ? decoded.uid : value);
+          if (next.some((value, index) => value !== district[field][index])) updates[`districts/${districtId}/${field}`] = next;
+        }
+      }
+    }
+
+    // Rewrite invitation sender/recipient references.
+    for (const [inviteId, invite] of Object.entries(root.invites || {})) {
+      if (!invite) continue;
+      if (invite.fromUserId === legacyUserId) updates[`invites/${inviteId}/fromUserId`] = decoded.uid;
+      if (invite.toUserId === legacyUserId) updates[`invites/${inviteId}/toUserId`] = decoded.uid;
+    }
+
+    // Multi-location update commits the profile and all references as one RTDB operation.
+    await rootRef.update(updates);
+    res.status(200).json({ uid: decoded.uid, migratedReferences: Object.keys(updates).length });
   } catch (error) {
     console.error('Legacy profile migration failed', error);
     res.status(401).json({ error: 'migration_failed' });
   }
 });
+
