@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { ref, set as fbSet, onValue, push, update, onDisconnect } from 'firebase/database';
+import { ref, set as fbSet, onValue, push, update, onDisconnect, Unsubscribe } from 'firebase/database';
 import { db } from './firebase';
 import { auth } from './auth';
 import { compressImage, isValidImageFile } from './utils/imageCompressor';
