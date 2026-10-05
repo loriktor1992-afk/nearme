@@ -88,12 +88,10 @@ export default function MapScreen() {
   const mapTilerMapId = (import.meta.env.VITE_MAPTILER_MAP_ID as string | undefined) || 'streets-v4';
   const tileUrl = mapTilerKey
     ? `https://api.maptiler.com/maps/${mapTilerMapId}/256/{z}/{x}/{y}@2x.png?key=${mapTilerKey}`
-    : theme === 'dark'
-      ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-      : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+    : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
   const tileAttribution = mapTilerKey
     ? '&copy; MapTiler &copy; OpenStreetMap contributors'
-    : '&copy; OpenStreetMap contributors &copy; CARTO';
+    : '&copy; OpenStreetMap contributors';
 
   useEffect(() => {
     if (!navigator.geolocation) return;
@@ -198,8 +196,8 @@ export default function MapScreen() {
           attribution={tileAttribution}
           url={tileUrl}
           maxZoom={21}
-          maxNativeZoom={20}
-          detectRetina={!mapTilerKey}
+          maxNativeZoom={mapTilerKey ? 20 : 19}
+          detectRetina={Boolean(mapTilerKey)}
         />
         <MapController lat={centerLat} lng={centerLng} zoom={mapZoom} />
 
