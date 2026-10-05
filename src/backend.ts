@@ -7,4 +7,5 @@ export const backend = {
   migrateLegacyProfile: endpoint(import.meta.env.VITE_LEGACY_MIGRATION_URL, 'migrateLegacyProfile'),
   createConversation: endpoint(import.meta.env.VITE_CREATE_CONVERSATION_URL, 'createConversation'),
   saveTelegramChatId: endpoint(import.meta.env.VITE_SAVE_TELEGRAM_CHAT_ID_URL, 'saveTelegramChatId'),
+  photoLike: endpoint(import.meta.env.VITE_PHOTO_LIKE_URL, 'photoLike'),
 };

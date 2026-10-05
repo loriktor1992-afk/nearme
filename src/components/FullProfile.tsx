@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useStore } from '../store';
 import { getZodiacSign } from '../utils/helpers';
-import PhotoViewer from './PhotoViewer';
+import PhotoViewer, { photoKey } from './PhotoViewer';
 
 export default function FullProfile() {
   const { currentUser, setShowFullProfile, uploadAvatar, uploadPhoto, deletePhoto, updateProfile } = useStore();
@@ -442,27 +442,20 @@ export default function FullProfile() {
                       }}
                     >
                       <img src={photo} alt="" className="w-full h-full object-cover" />
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
-                        <div className="flex items-center gap-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              togglePhotoLike(idx);
-                            }}
-                            className="text-white"
-                          >
-                            <i className={`${photoLikes[idx] ? 'fas' : 'far'} fa-heart text-2xl`}></i>
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeletePhoto(idx);
-                            }}
-                            className="text-white"
-                          >
-                            <i className="fas fa-trash text-xl"></i>
-                          </button>
-                        </div>
+                      <div className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-gradient-to-t from-black/70 to-transparent px-2 pb-2 pt-6 text-white">
+                        <span className="flex items-center gap-1 text-xs font-bold">
+                          <i className="fas fa-heart" /> {currentUser.photoLikeCounts?.[photoKey(photo)] || 0}
+                        </span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeletePhoto(idx);
+                          }}
+                          className="flex h-8 w-8 items-center justify-center rounded-full bg-black/45"
+                          aria-label="Удалить фотографию"
+                        >
+                          <i className="fas fa-trash text-xs"></i>
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -715,6 +708,10 @@ export default function FullProfile() {
           photos={currentUser.photos}
           initialIndex={selectedPhotoIndex}
           onClose={() => setSelectedPhoto(null)}
+          isOwner
+          ownerUid={currentUser.id}
+          ownerName={currentUser.name}
+          initialCounts={currentUser.photoLikeCounts}
         />
       )}
     </div>
