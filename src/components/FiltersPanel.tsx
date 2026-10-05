@@ -117,7 +117,6 @@ export default function FiltersPanel() {
                   max="99"
                   value={localAgeMin}
                   onChange={e => handleAgeMinChange(e.target.value)}
-                  placeholder="14"
                   className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-purple-500 outline-none text-center text-lg font-semibold text-gray-800 placeholder-gray-400"
                 />
               </div>
@@ -130,7 +129,6 @@ export default function FiltersPanel() {
                   max="99"
                   value={localAgeMax}
                   onChange={e => handleAgeMaxChange(e.target.value)}
-                  placeholder="99"
                   className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-purple-500 outline-none text-center text-lg font-semibold text-gray-800 placeholder-gray-400"
                 />
               </div>
@@ -141,18 +139,19 @@ export default function FiltersPanel() {
           <div>
             <label className="block font-bold text-gray-800 mb-3">
               <i className="fas fa-location-dot text-purple-500 mr-2"></i>
-              Расстояние: до {filters.distanceMax} км
+              Расстояние: до {filters.distanceMax < 1 ? `${Math.round(filters.distanceMax * 1000)} м` : `${filters.distanceMax} км`}
             </label>
             <input
               type="range"
-              min="1"
+              min="0.1"
               max="100"
+              step="0.1"
               value={filters.distanceMax}
-              onChange={e => setFilters({ distanceMax: parseInt(e.target.value) })}
+              onChange={e => setFilters({ distanceMax: parseFloat(e.target.value) })}
               className="w-full accent-purple-500"
             />
             <div className="flex justify-between text-xs text-gray-500 mt-1">
-              <span>1 км</span>
+              <span>100 м</span>
               <span>50 км</span>
               <span>100 км</span>
             </div>
