@@ -1193,8 +1193,26 @@ export async function restoreVerifiedSession(firebaseUid: string): Promise<void>
   }
 
   const userRef = ref(db, `users/${firebaseUid}`);
-  const snapshot = await fbGet(userRef);
-  const firebaseProfile = snapshot.val();
+  let firebaseProfile: User | null = null;
+  let networkAvailable = true;
+
+  try {
+    const snapshot = await fbGet(userRef);
+    firebaseProfile = snapshot.val();
+  } catch (error) {
+    networkAvailable = false;
+    console.warn('Firebase profile read unavailable; restoring cached verified profile', error);
+    const cached = localStorage.getItem('nearme_user');
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached) as User;
+        if (parsed?.id === firebaseUid) firebaseProfile = parsed;
+      } catch {
+        // Ignore malformed cache and fail below with the original Firebase error.
+      }
+    }
+    if (!firebaseProfile) throw error;
+  }
 
   if (!firebaseProfile) {
     localStorage.removeItem('nearme_registered');
@@ -1203,8 +1221,16 @@ export async function restoreVerifiedSession(firebaseUid: string): Promise<void>
     return;
   }
 
-  const privateSnapshot = await fbGet(ref(db, `privateSettings/${firebaseUid}/blockedUsers`));
-  const privateBlocked = privateSnapshot.val();
+  let privateBlocked: unknown = null;
+  if (networkAvailable) {
+    try {
+      const privateSnapshot = await fbGet(ref(db, `privateSettings/${firebaseUid}/blockedUsers`));
+      privateBlocked = privateSnapshot.val();
+    } catch (error) {
+      networkAvailable = false;
+      console.warn('Firebase private settings read unavailable during bootstrap', error);
+    }
+  }
   const legacyBlocked = firebaseProfile.privacySettings?.blockedUsers;
   const blockedUsers = Array.isArray(privateBlocked)
     ? privateBlocked
@@ -1225,23 +1251,36 @@ export async function restoreVerifiedSession(firebaseUid: string): Promise<void>
   };
 
   const presenceRef = ref(db, `presence/${firebaseUid}`);
-  await update(presenceRef, { isOnline: true, lastSeen: now });
-  onDisconnect(presenceRef).update({ isOnline: false, lastSeen: Date.now() });
+  if (networkAvailable) {
+    try {
+      await update(presenceRef, { isOnline: true, lastSeen: now });
+      onDisconnect(presenceRef).update({ isOnline: false, lastSeen: Date.now() });
+    } catch (error) {
+      networkAvailable = false;
+      console.warn('Firebase presence update unavailable during bootstrap', error);
+    }
+  }
 
   useStore.setState({ currentUser: updatedUser, isRegistered: true });
   localStorage.setItem('nearme_registered', 'true');
   localStorage.setItem('nearme_user_id', firebaseUid);
   localStorage.setItem('nearme_user', JSON.stringify(updatedUser));
 
-  if (Array.isArray(legacyBlocked)) {
-    await fbSet(ref(db, `privateSettings/${firebaseUid}/blockedUsers`), legacyBlocked);
-    await fbSet(ref(db, `users/${firebaseUid}/privacySettings/blockedUsers`), null);
+  if (networkAvailable && Array.isArray(legacyBlocked)) {
+    try {
+      await fbSet(ref(db, `privateSettings/${firebaseUid}/blockedUsers`), legacyBlocked);
+      await fbSet(ref(db, `users/${firebaseUid}/privacySettings/blockedUsers`), null);
+    } catch (error) {
+      console.warn('Legacy blocked-user migration deferred', error);
+    }
   }
 
-  useStore.getState().listenForUsers();
-  useStore.getState().listenForMessages();
-  useStore.getState().listenForMatches();
-  useStore.getState().listenForDistricts();
-  useStore.getState().listenForInvites();
-  useStore.getState().startLocationTracking();
+  if (networkAvailable) {
+    useStore.getState().listenForUsers();
+    useStore.getState().listenForMessages();
+    useStore.getState().listenForMatches();
+    useStore.getState().listenForDistricts();
+    useStore.getState().listenForInvites();
+    useStore.getState().startLocationTracking();
+  }
 }
