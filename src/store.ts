@@ -27,7 +27,8 @@ export interface User {
   bio: string;
   avatar: string; // emoji fallback
   photoUrl: string; // реальное фото (URL)
-  photos: string[]; // галерея до 6 фото
+  photos: string[]; // галерея фотографий
+  photoLikeCounts?: Record<string, number>; // публичные счётчики лайков фотографий
   status: string; // статус под фото
   city: string; // город
   lat: number;
