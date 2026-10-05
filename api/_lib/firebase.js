@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 
 const PROJECT_ID = process.env.FIREBASE_PROJECT_ID || 'nearme-app-59aa5';
-const DATABASE_URL = process.env.FIREBASE_DATABASE_URL || 'https://nearme-app-59aa5-default-rtdb.firebaseio.com';
+const DATABASE_URL = process.env.FIREBASE_DATABASE_URL || 'https://nearme-app-59aa5-default-rtdb.europe-west1.firebasedatabase.app';
 
 function b64url(value) {
   return Buffer.from(typeof value === 'string' ? value : JSON.stringify(value))
