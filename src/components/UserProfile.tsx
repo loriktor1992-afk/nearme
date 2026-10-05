@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useStore } from '../store';
 import { getDistance, formatDistance, getZodiacSign } from '../utils/helpers';
-import PhotoViewer from './PhotoViewer';
+import PhotoViewer, { photoKey } from './PhotoViewer';
 
 export default function UserProfile() {
   const { selectedUser, currentUser, setShowProfile, setShowChat, uploadAvatar, updateStatus, likeUser, unlikeUser, viewProfile, setShowFullProfile } = useStore();
@@ -214,16 +214,19 @@ export default function UserProfile() {
             </h3>
             <div className="grid grid-cols-3 gap-2">
               {selectedUser.photos.map((photo, idx) => (
-                <div
+                <button
                   key={idx}
                   onClick={() => {
                     setSelectedPhoto(photo);
                     setSelectedPhotoIndex(idx);
                   }}
-                  className="aspect-square rounded-xl overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
+                  className="group relative aspect-square overflow-hidden bg-slate-100 dark:bg-slate-900"
                 >
-                  <img src={photo} alt="" className="w-full h-full object-cover" />
-                </div>
+                  <img src={photo} alt="" className="h-full w-full object-cover transition duration-200 group-active:scale-[0.98]" />
+                  <span className="absolute bottom-2 left-2 flex items-center gap-1 rounded-full bg-black/55 px-2 py-1 text-xs font-bold text-white backdrop-blur">
+                    <i className="fas fa-heart" /> {selectedUser.photoLikeCounts?.[photoKey(photo)] || 0}
+                  </span>
+                </button>
               ))}
             </div>
           </div>
@@ -357,6 +360,9 @@ export default function UserProfile() {
           initialIndex={selectedPhotoIndex}
           onClose={() => setSelectedPhoto(null)}
           isOwner={isMe}
+          ownerUid={selectedUser.id}
+          ownerName={selectedUser.name}
+          initialCounts={selectedUser.photoLikeCounts}
         />
       )}
     </div>
