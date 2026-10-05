@@ -363,6 +363,7 @@ export default function UserProfile() {
           isOwner={isMe}
           ownerUid={selectedUser.id}
           ownerName={selectedUser.name}
+          ownerAvatar={selectedUser.photoUrl}
           initialCounts={selectedUser.photoLikeCounts}
         />
       )}
