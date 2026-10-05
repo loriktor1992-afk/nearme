@@ -33,6 +33,7 @@ async function bootstrap() {
   const isTelegram = Boolean(window.Telegram?.WebApp && tg.initData);
   const allowBrowserDev = import.meta.env.DEV && import.meta.env.VITE_ALLOW_LEGACY_DEV_AUTH === 'true';
 
+  let stage = 'telegram-auth';
   try {
     // Telegram production is fail-closed: protected app data is never initialized without verified Firebase auth.
     const session = await signInWithTelegram();
@@ -45,8 +46,11 @@ async function bootstrap() {
       return;
     }
     if (session) {
+      stage = 'legacy-migration';
       await migrateLegacyProfileIfNeeded(session);
+      stage = 'restore-session';
       await restoreVerifiedSession(session.uid);
+      stage = 'render-app';
     }
     root.render(<App />);
   } catch (error) {
@@ -54,8 +58,11 @@ async function bootstrap() {
     const code = typeof error === 'object' && error !== null && 'code' in error
       ? String((error as { code?: unknown }).code || '')
       : '';
+    const rawMessage = error instanceof Error ? error.message : '';
+    const safeMessage = rawMessage.replace(/[\r\n]+/g, ' ').slice(0, 180);
     const detail = code ? ` Код: ${code}.` : '';
-    renderAuthError(`Не удалось подтвердить Telegram-сессию.${detail} Нажмите «Повторить».`);
+    const reason = safeMessage ? ` Причина: ${safeMessage}.` : '';
+    renderAuthError(`Не удалось подтвердить Telegram-сессию. Этап: ${stage}.${detail}${reason} Нажмите «Повторить».`);
   }
 }
 
