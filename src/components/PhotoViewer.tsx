@@ -1,232 +1,135 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { auth } from '../auth';
+import { backend } from '../backend';
 import { useStore } from '../store';
+
+export function photoKey(photo: string) {
+  let hash = 2166136261;
+  for (let i = 0; i < photo.length; i += Math.max(1, Math.floor(photo.length / 2048))) {
+    hash ^= photo.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return 'p_' + (hash >>> 0).toString(36);
+}
 
 interface PhotoViewerProps {
   photos: string[];
   initialIndex: number;
   onClose: () => void;
-  isOwner?: boolean; // Показывать кнопки удаления и лайка
+  isOwner?: boolean;
+  ownerUid: string;
+  ownerName?: string;
+  initialCounts?: Record<string, number>;
 }
 
-export default function PhotoViewer({ photos, initialIndex, onClose, isOwner = true }: PhotoViewerProps) {
-  const { currentUser, deletePhoto } = useStore();
+export default function PhotoViewer({ photos, initialIndex, onClose, isOwner = false, ownerUid, ownerName, initialCounts = {} }: PhotoViewerProps) {
+  const { deletePhoto } = useStore();
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
-  const [showControls, setShowControls] = useState(true);
+  const [liked, setLiked] = useState(false);
+  const [count, setCount] = useState(0);
+  const [busy, setBusy] = useState(false);
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
-  const [isLiked, setIsLiked] = useState<Record<number, boolean>>({});
+  const currentPhoto = photos[currentIndex];
+  const key = currentPhoto ? photoKey(currentPhoto) : '';
 
-  // Минимальное расстояние для свайпа
-  const minSwipeDistance = 50;
+  useEffect(() => {
+    let active = true;
+    setCount(initialCounts[key] || 0);
+    (async () => {
+      const token = await auth.currentUser?.getIdToken();
+      if (!token || !key) return;
+      const response = await fetch(backend.photoLike, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ ownerUid, photoKey: key, action: 'status' }),
+      });
+      if (response.ok && active) {
+        const data = await response.json();
+        setLiked(Boolean(data.liked));
+        setCount(Number(data.count) || 0);
+      }
+    })().catch(console.error);
+    return () => { active = false; };
+  }, [key, ownerUid]);
 
-  const onTouchStart = (e: React.TouchEvent) => {
-    setTouchEnd(null);
-    setTouchStart(e.targetTouches[0].clientX);
-  };
-
-  const onTouchMove = (e: React.TouchEvent) => {
-    setTouchEnd(e.targetTouches[0].clientX);
-  };
-
-  const onTouchEnd = () => {
-    if (!touchStart || !touchEnd) return;
-    
-    const distance = touchStart - touchEnd;
-    const isLeftSwipe = distance > minSwipeDistance;
-    const isRightSwipe = distance < -minSwipeDistance;
-    
-    if (isLeftSwipe && currentIndex < photos.length - 1) {
-      setCurrentIndex(currentIndex + 1);
-    } else if (isRightSwipe && currentIndex > 0) {
-      setCurrentIndex(currentIndex - 1);
+  const toggleLike = async () => {
+    if (busy || !key) return;
+    const token = await auth.currentUser?.getIdToken();
+    if (!token) return;
+    setBusy(true);
+    try {
+      const response = await fetch(backend.photoLike, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ ownerUid, photoKey: key, action: 'toggle' }),
+      });
+      if (!response.ok) throw new Error('Like failed');
+      const data = await response.json();
+      setLiked(Boolean(data.liked));
+      setCount(Number(data.count) || 0);
+    } finally {
+      setBusy(false);
     }
   };
 
   const handleDelete = () => {
-    if (confirm('Удалить это фото?')) {
-      deletePhoto(currentIndex);
-      
-      // Если это было последнее фото, закрываем просмотр
-      if (photos.length === 1) {
-        onClose();
-      } else if (currentIndex >= photos.length - 1) {
-        // Если удалили последнее фото, переходим на предыдущее
-        setCurrentIndex(currentIndex - 1);
-      }
-    }
+    if (!isOwner || !confirm('Удалить эту фотографию из профиля?')) return;
+    deletePhoto(currentIndex);
+    if (photos.length === 1) onClose();
+    else setCurrentIndex(Math.max(0, Math.min(currentIndex, photos.length - 2)));
   };
 
-  const handleLike = () => {
-    setIsLiked(prev => ({
-      ...prev,
-      [currentIndex]: !prev[currentIndex]
-    }));
+  const endSwipe = () => {
+    if (touchStart === null || touchEnd === null) return;
+    const distance = touchStart - touchEnd;
+    if (distance > 50 && currentIndex < photos.length - 1) setCurrentIndex(i => i + 1);
+    if (distance < -50 && currentIndex > 0) setCurrentIndex(i => i - 1);
   };
 
-  const handleDoubleClick = () => {
-    if (!isLiked[currentIndex]) {
-      handleLike();
-    }
-  };
-
-  // Автоскрытие контролов через 3 секунды
-  useEffect(() => {
-    if (showControls) {
-      const timer = setTimeout(() => {
-        setShowControls(false);
-      }, 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [showControls]);
+  if (!currentPhoto) return null;
 
   return (
-    <div 
-      className="fixed inset-0 z-[4000] bg-black flex flex-col"
-      onClick={() => setShowControls(!showControls)}
-    >
-      {/* Header */}
-      <div 
-        className={`absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-black/80 to-transparent p-4 transition-opacity duration-300 ${
-          showControls ? 'opacity-100' : 'opacity-0'
-        }`}
-        onClick={e => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between">
-          <button
-            onClick={onClose}
-            className="w-10 h-10 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/30 transition-colors"
-          >
-            <i className="fas fa-times text-white text-xl"></i>
+    <div className="fixed inset-0 z-[4000] flex flex-col bg-black text-white">
+      <header className="flex items-center gap-3 px-4 pb-3 pt-[max(14px,env(safe-area-inset-top))]">
+        <button onClick={onClose} className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10" aria-label="Закрыть">
+          <i className="fas fa-arrow-left" />
+        </button>
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-sm font-bold">{ownerName || 'Фотография'}</div>
+          <div className="text-xs text-white/55">{currentIndex + 1} из {photos.length}</div>
+        </div>
+        {isOwner && (
+          <button onClick={handleDelete} className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-red-400" aria-label="Удалить фотографию">
+            <i className="fas fa-trash" />
           </button>
-          <div className="text-white font-semibold">
-            {currentIndex + 1} / {photos.length}
-          </div>
-          {isOwner ? (
-            <button
-              onClick={handleDelete}
-              className="w-10 h-10 flex items-center justify-center rounded-full bg-red-500/80 hover:bg-red-500 transition-colors"
-            >
-              <i className="fas fa-trash text-white"></i>
-            </button>
-          ) : (
-            <div className="w-10 h-10"></div>
-          )}
-        </div>
+        )}
+      </header>
+
+      <div
+        className="flex min-h-0 flex-1 items-center justify-center"
+        onTouchStart={e => { setTouchEnd(null); setTouchStart(e.targetTouches[0].clientX); }}
+        onTouchMove={e => setTouchEnd(e.targetTouches[0].clientX)}
+        onTouchEnd={endSwipe}
+        onDoubleClick={toggleLike}
+      >
+        <img src={currentPhoto} alt="" className="max-h-full w-full object-contain" />
       </div>
 
-      {/* Photo */}
-      <div 
-        className="flex-1 flex items-center justify-center"
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}
-        onDoubleClick={handleDoubleClick}
-      >
-        <img
-          src={photos[currentIndex]}
-          alt={`Photo ${currentIndex + 1}`}
-          className="max-w-full max-h-full object-contain"
-        />
-      </div>
-
-      {/* Bottom Controls */}
-      <div 
-        className={`absolute bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-black/80 to-transparent p-6 transition-opacity duration-300 ${
-          showControls ? 'opacity-100' : 'opacity-0'
-        }`}
-        onClick={e => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-around max-w-md mx-auto">
-          {/* Like Button */}
-          {isOwner && (
-            <button
-              onClick={handleLike}
-              className="flex flex-col items-center gap-1"
-            >
-              <div className={`w-14 h-14 rounded-full flex items-center justify-center transition-all ${
-                isLiked[currentIndex] 
-                  ? 'bg-pink-500 scale-110' 
-                  : 'bg-white/20 hover:bg-white/30'
-              }`}>
-                <i className={`fas fa-heart text-2xl ${
-                  isLiked[currentIndex] ? 'text-white' : 'text-white/80'
-                }`}></i>
-              </div>
-              <span className="text-white text-xs">Нравится</span>
-            </button>
-          )}
-
-          {/* Navigation Dots */}
-          <div className="flex gap-2">
-            {photos.map((_, idx) => (
-              <button
-                key={idx}
-                onClick={() => setCurrentIndex(idx)}
-                className={`w-2 h-2 rounded-full transition-all ${
-                  idx === currentIndex 
-                    ? 'bg-white w-6' 
-                    : 'bg-white/40'
-                }`}
-              />
-            ))}
-          </div>
-
-          {/* Delete Button */}
-          {isOwner && (
-            <button
-              onClick={handleDelete}
-              className="flex flex-col items-center gap-1"
-            >
-              <div className="w-14 h-14 rounded-full bg-white/20 hover:bg-red-500/80 flex items-center justify-center transition-all">
-                <i className="fas fa-trash text-2xl text-white/80"></i>
-              </div>
-              <span className="text-white text-xs">Удалить</span>
-            </button>
-          )}
+      <div className="border-t border-white/10 bg-black px-4 pb-[max(18px,env(safe-area-inset-bottom))] pt-3">
+        <div className="flex items-center gap-4">
+          <button onClick={toggleLike} disabled={busy} className="flex h-11 w-11 items-center justify-center text-2xl disabled:opacity-50" aria-label="Нравится">
+            <i className={`${liked ? 'fas text-pink-500' : 'far text-white'} fa-heart`} />
+          </button>
+          <span className="text-sm font-bold">{count} {count === 1 ? 'отметка «Нравится»' : 'отметок «Нравится»'}</span>
         </div>
-
-        {/* Swipe Hint */}
+        <p className="mt-1 text-sm text-white/65">{ownerName ? `Фото пользователя ${ownerName}` : 'Фото профиля'}</p>
         {photos.length > 1 && (
-          <div className="text-center mt-4">
-            <p className="text-white/60 text-sm">
-              <i className="fas fa-arrows-left-right mr-2"></i>
-              Свайпайте для навигации
-            </p>
+          <div className="mt-3 flex justify-center gap-1.5">
+            {photos.map((_, idx) => <span key={idx} className={`h-1.5 rounded-full ${idx === currentIndex ? 'w-5 bg-white' : 'w-1.5 bg-white/35'}`} />)}
           </div>
         )}
       </div>
-
-      {/* Navigation Arrows (for desktop) */}
-      {photos.length > 1 && (
-        <>
-          {currentIndex > 0 && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setCurrentIndex(currentIndex - 1);
-              }}
-              className={`absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-opacity duration-300 ${
-                showControls ? 'opacity-100' : 'opacity-0'
-              }`}
-            >
-              <i className="fas fa-chevron-left text-white text-xl"></i>
-            </button>
-          )}
-          {currentIndex < photos.length - 1 && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setCurrentIndex(currentIndex + 1);
-              }}
-              className={`absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-opacity duration-300 ${
-                showControls ? 'opacity-100' : 'opacity-0'
-              }`}
-            >
-              <i className="fas fa-chevron-right text-white text-xl"></i>
-            </button>
-          )}
-        </>
-      )}
     </div>
   );
 }
