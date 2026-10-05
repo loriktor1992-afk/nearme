@@ -37,6 +37,7 @@ export default function UserProfile() {
   };
 
   const distance = getDistance(currentUser.lat, currentUser.lng, selectedUser.lat, selectedUser.lng);
+  const totalPhotoLikes = Object.values(selectedUser.photoLikeCounts || {}).reduce((sum, value) => sum + (Number(value) || 0), 0);
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -69,7 +70,7 @@ export default function UserProfile() {
       
       <div className="relative w-full bg-white dark:bg-gray-800 rounded-t-3xl shadow-2xl animate-slide-up overflow-hidden max-h-[90vh] overflow-y-auto">
         {/* Header with photo */}
-        <div className="bg-gradient-to-br from-pink-500 via-purple-500 to-indigo-600 pt-8 pb-20 px-6 relative">
+        <div className="bg-slate-950 pt-8 pb-20 px-6 relative">
           <button
             onClick={() => setShowProfile(false)}
             className="absolute top-4 right-4 w-8 h-8 bg-white/20 rounded-full flex items-center justify-center"
@@ -80,7 +81,7 @@ export default function UserProfile() {
           <div className="text-center">
             {/* Photo */}
             <div className="relative inline-block">
-              <div className="w-28 h-28 rounded-full bg-white/20 backdrop-blur-lg border-4 border-white overflow-hidden mx-auto mb-3">
+              <div className="w-32 h-32 rounded-[30px] bg-white/10 backdrop-blur-lg border border-white/20 overflow-hidden mx-auto mb-3 shadow-2xl">
                 {selectedUser.photoUrl ? (
                   <img src={selectedUser.photoUrl} alt="" className="w-full h-full object-cover" />
                 ) : (
@@ -180,15 +181,15 @@ export default function UserProfile() {
             {/* Stats */}
             <div className="flex justify-center gap-6 py-2">
               <div className="text-center">
-                <div className="text-lg font-bold text-purple-600">{selectedUser.age}</div>
-                <div className="text-xs text-gray-500">возраст</div>
+                <div className="text-lg font-bold text-slate-950 dark:text-white">{selectedUser.photos?.length || 0}</div>
+                <div className="text-xs text-gray-500">фото</div>
               </div>
               {selectedUser.height > 0 && (
                 <>
                   <div className="w-px bg-gray-200 dark:bg-gray-600"></div>
                   <div className="text-center">
-                    <div className="text-lg font-bold text-purple-600">{selectedUser.height} см</div>
-                    <div className="text-xs text-gray-500">рост</div>
+                    <div className="text-lg font-bold text-slate-950 dark:text-white">{totalPhotoLikes}</div>
+                    <div className="text-xs text-gray-500">лайков</div>
                   </div>
                 </>
               )}
@@ -212,7 +213,7 @@ export default function UserProfile() {
               <i className="fas fa-images text-purple-500 mr-2"></i>
               Фотографии ({selectedUser.photos.length})
             </h3>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-3 gap-0.5 overflow-hidden rounded-2xl">
               {selectedUser.photos.map((photo, idx) => (
                 <button
                   key={idx}
