@@ -711,6 +711,7 @@ export default function FullProfile() {
           isOwner
           ownerUid={currentUser.id}
           ownerName={currentUser.name}
+          ownerAvatar={currentUser.photoUrl}
           initialCounts={currentUser.photoLikeCounts}
         />
       )}
